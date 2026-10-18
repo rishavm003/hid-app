@@ -1,8 +1,17 @@
 import SwiftUI
 
+struct DailyNote: Identifiable, Codable {
+    var id: UUID = UUID()
+    var title: String
+    var content: String
+    var date: Date = Date()
+}
+
 struct ContentView: View {
     @EnvironmentObject var model: SafetyModel
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("haven_decoy_pin") private var decoyPin = "1998"
+    @State private var isUnlocked = false
     @State private var tab = 0
     @State private var minutes = 15
     @State private var confirmSOS = false
@@ -10,6 +19,26 @@ struct ContentView: View {
     private let ink = Color(red: 0.08, green: 0.19, blue: 0.20)
 
     var body: some View {
+        Group {
+            if isUnlocked {
+                havenInterface
+            } else {
+                DailyNotesDecoyView(secretPin: decoyPin) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isUnlocked = true
+                    }
+                }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
+                // Instantly lock back to Daily Notes when app is minimized or phone locked
+                isUnlocked = false
+            }
+        }
+    }
+
+    private var havenInterface: some View {
         TabView(selection: $tab) {
             NavigationStack {
                 ScrollView {
@@ -59,7 +88,18 @@ struct ContentView: View {
                     }.padding(24)
                 }
                 .background(Color(red: 0.94, green: 0.96, blue: 0.92)).foregroundStyle(ink)
-                .toolbar { Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.refresh() } } }
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            withAnimation { isUnlocked = false }
+                        } label: {
+                            Label("Notes", systemImage: "note.text")
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Refresh", systemImage: "arrow.clockwise") { Task { await model.refresh() } }
+                    }
+                }
             }.tabItem { Label("Home", systemImage: "house") }.tag(0)
             NavigationStack {
                 List {
@@ -85,10 +125,34 @@ struct ContentView: View {
                     }
                 }.navigationTitle("Your circle")
                     .refreshable { await model.refresh() }
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                withAnimation { isUnlocked = false }
+                            } label: {
+                                Label("Notes", systemImage: "note.text")
+                            }
+                        }
+                    }
             }.tabItem { Label("Circle", systemImage: "person.2") }.tag(1)
             FamilyView().tabItem { Label("Family", systemImage: "location.circle") }.tag(3)
             NavigationStack {
                 Form {
+                    Section("Disguise / Decoy Mode") {
+                        HStack {
+                            Text("Unlock PIN")
+                            Spacer()
+                            TextField("4-digit PIN", text: $decoyPin)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 80)
+                        }
+                        Text("When Daily Notes is shown, typing this PIN into the notes search bar or long-pressing the 'Daily Notes' title reveals Haven.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Button("Test Daily Notes disguise now") {
+                            withAnimation { isUnlocked = false }
+                        }
+                    }
                     Section("Connect your pilot server") {
                         TextField("https://safety.example.com", text: $model.endpoint)
                             .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
@@ -106,6 +170,15 @@ struct ContentView: View {
                     }
                     Section { statusPanel }
                 }.navigationTitle("Setup")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                withAnimation { isUnlocked = false }
+                            } label: {
+                                Label("Notes", systemImage: "note.text")
+                            }
+                        }
+                    }
             }.tabItem { Label("Setup", systemImage: "slider.horizontal.3") }.tag(2)
         }.tint(ink)
         .confirmationDialog(model.status?.mode == "live" ? "Send an alert to your trusted contacts now?" : "Record a demo SOS? Nobody will be contacted.", isPresented: $confirmSOS, titleVisibility: .visible) {
@@ -130,6 +203,288 @@ struct ContentView: View {
             if model.pending != nil {
                 Button("Retry same request") { Task { await model.retry() } }.disabled(model.busy)
                 Button("Clear local retry…", role: .destructive) { confirmClear = true }.disabled(model.busy)
+            }
+        }
+    }
+}
+
+// MARK: - Daily Notes Decoy Screen
+
+struct DailyNotesDecoyView: View {
+    let secretPin: String
+    let onUnlock: () -> Void
+
+    @AppStorage("haven_decoy_notes_json") private var notesJson: String = ""
+    @State private var notes: [DailyNote] = []
+    @State private var searchText = ""
+    @State private var selectedNote: DailyNote?
+    @State private var isCreatingNote = false
+    @State private var showPinSheet = false
+
+    var filteredNotes: [DailyNote] {
+        if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            return notes
+        }
+        return notes.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText) ||
+            $0.content.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(filteredNotes) { note in
+                    Button {
+                        selectedNote = note
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(note.title.isEmpty ? "Untitled Note" : note.title)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            HStack {
+                                Text(note.date.formatted(date: .abbreviated, time: .omitted))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(note.content)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+                .onDelete(perform: deleteNotes)
+            }
+            .listStyle(.insetGrouped)
+            .searchable(text: $searchText, prompt: "Search notes")
+            .onChange(of: searchText) { _, newValue in
+                // Discreet trigger: Typing the secret PIN into search bar reveals Haven immediately
+                if newValue.trimmingCharacters(in: .whitespaces) == secretPin {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    searchText = ""
+                    onUnlock()
+                }
+            }
+            .navigationTitle("Daily Notes")
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    // Discreet trigger: Long pressing the header title for 1.2s opens the PIN pad
+                    Text("Daily Notes")
+                        .font(.headline)
+                        .onLongPressGesture(minimumDuration: 1.2) {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            showPinSheet = true
+                        }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isCreatingNote = true
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                    }
+                }
+            }
+            .sheet(item: $selectedNote) { note in
+                NoteDetailView(note: note) { updated in
+                    if let index = notes.firstIndex(where: { $0.id == updated.id }) {
+                        notes[index] = updated
+                        saveNotes()
+                    }
+                }
+            }
+            .sheet(isPresented: $isCreatingNote) {
+                NoteDetailView(note: DailyNote(title: "", content: "")) { newNote in
+                    if !newNote.title.isEmpty || !newNote.content.isEmpty {
+                        notes.insert(newNote, at: 0)
+                        saveNotes()
+                    }
+                }
+            }
+            .sheet(isPresented: $showPinSheet) {
+                PinEntrySheet(targetPin: secretPin) {
+                    showPinSheet = false
+                    onUnlock()
+                }
+            }
+            .onAppear(perform: loadNotes)
+        }
+    }
+
+    private func loadNotes() {
+        if !notesJson.isEmpty, let data = notesJson.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode([DailyNote].self, from: data) {
+            notes = decoded
+        } else {
+            // Seed realistic everyday notes if empty
+            notes = [
+                DailyNote(
+                    title: "Grocery & pantry list",
+                    content: "Almond milk, organic eggs, avocados, baby spinach, green apples, whole wheat bread, dark roast beans."
+                ),
+                DailyNote(
+                    title: "Books to finish",
+                    content: "Atomic Habits (chapter 6), Deep Work, The Psychology of Money."
+                ),
+                DailyNote(
+                    title: "Weekend plans",
+                    content: "Morning run in park, laundry, call mom, clean kitchen, prepare presentation slides."
+                )
+            ]
+            saveNotes()
+        }
+    }
+
+    private func saveNotes() {
+        if let data = try? JSONEncoder().encode(notes), let json = String(data: data, encoding: .utf8) {
+            notesJson = json
+        }
+    }
+
+    private func deleteNotes(at offsets: IndexSet) {
+        notes.remove(atOffsets: offsets)
+        saveNotes()
+    }
+}
+
+// MARK: - Note Viewer & Editor
+
+struct NoteDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State var note: DailyNote
+    let onSave: (DailyNote) -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Title", text: $note.title)
+                        .font(.headline)
+                    TextEditor(text: $note.content)
+                        .frame(minHeight: 200)
+                }
+            }
+            .navigationTitle(note.title.isEmpty ? "New Note" : note.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        note.date = Date()
+                        onSave(note)
+                        dismiss()
+                    }
+                    .bold()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Discreet PIN Sheet
+
+struct PinEntrySheet: View {
+    let targetPin: String
+    let onSuccess: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var input = ""
+    @State private var isError = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 32) {
+                Spacer()
+                VStack(spacing: 12) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 38))
+                        .foregroundStyle(isError ? .red : .secondary)
+                    Text("Private Notebook")
+                        .font(.title3.bold())
+                    Text("Enter 4-digit passcode")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                // 4 PIN indicator dots
+                HStack(spacing: 18) {
+                    ForEach(0..<4, id: \.self) { index in
+                        Circle()
+                            .fill(index < input.count ? (isError ? Color.red : Color.primary) : Color.secondary.opacity(0.2))
+                            .frame(width: 16, height: 16)
+                    }
+                }
+                .padding(.vertical, 8)
+
+                // Numeric keypad
+                VStack(spacing: 16) {
+                    ForEach([[1, 2, 3], [4, 5, 6], [7, 8, 9]], id: \.self) { row in
+                        HStack(spacing: 28) {
+                            ForEach(row, id: \.self) { num in
+                                keypadButton("\(num)")
+                            }
+                        }
+                    }
+                    HStack(spacing: 28) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Text("Cancel")
+                                .font(.subheadline)
+                                .frame(width: 72, height: 72)
+                                .foregroundStyle(.secondary)
+                        }
+                        keypadButton("0")
+                        Button {
+                            if !input.isEmpty {
+                                input.removeLast()
+                                isError = false
+                            }
+                        } label: {
+                            Image(systemName: "delete.left")
+                                .font(.title2)
+                                .frame(width: 72, height: 72)
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
+        }
+    }
+
+    private func keypadButton(_ digit: String) -> some View {
+        Button {
+            handleDigit(digit)
+        } label: {
+            Text(digit)
+                .font(.title.weight(.medium))
+                .frame(width: 72, height: 72)
+                .background(Color(.systemGray6))
+                .clipShape(Circle())
+                .foregroundStyle(.primary)
+        }
+    }
+
+    private func handleDigit(_ digit: String) {
+        guard input.count < 4 else { return }
+        input.append(digit)
+        isError = false
+        if input.count == 4 {
+            if input == targetPin {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                onSuccess()
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                isError = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    input = ""
+                    isError = false
+                }
             }
         }
     }

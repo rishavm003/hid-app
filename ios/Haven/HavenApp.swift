@@ -26,9 +26,12 @@ struct HavenApp: App {
                 .overlay {
                     if phase != .active {
                         ZStack {
-                            Color(red: 0.94, green: 0.96, blue: 0.92).ignoresSafeArea()
-                            Image(systemName: "circle.hexagongrid.fill").font(.largeTitle)
-                        }.accessibilityLabel("Haven privacy screen")
+                            Color(red: 0.98, green: 0.97, blue: 0.95).ignoresSafeArea()
+                            VStack(spacing: 12) {
+                                Image(systemName: "note.text").font(.system(size: 44)).foregroundStyle(Color(red: 0.4, green: 0.35, blue: 0.3))
+                                Text("Daily Notes").font(.headline).foregroundStyle(Color(red: 0.4, green: 0.35, blue: 0.3))
+                            }
+                        }.accessibilityLabel("Daily Notes preview")
                     }
                 }
                 .task { await model.refresh(); await family.reconcile() }
