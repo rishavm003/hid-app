@@ -13,9 +13,9 @@ targets:
     sources: [Haven]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.haven
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.notes
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Daily Notes
+        INFOPLIST_KEY_CFBundleDisplayName: Notes
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: Used for location-based note reminders and trusted family sharing when enabled.
         INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: When family sharing is enabled, allow location updates and movement-based recovery while the app is in the background. You can pause or stop sharing anytime in settings.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -25,4 +25,4 @@ targets:
       path: Haven-Info.plist
       properties:
         UIBackgroundModes: [location, fetch]
-        BGTaskSchedulerPermittedIdentifiers: [com.example.haven.location-refresh]
+        BGTaskSchedulerPermittedIdentifiers: [com.example.notes.location-refresh]

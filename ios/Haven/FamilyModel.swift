@@ -15,7 +15,7 @@ struct FamilySession: Codable {
 @MainActor
 final class FamilyModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     static let shared = FamilyModel()
-    static let refreshIdentifier = "com.example.haven.location-refresh"
+    static let refreshIdentifier = "com.example.notes.location-refresh"
     @Published var session: FamilySession?
     @Published var message = "Join only a controller you know and trust."
     @Published var busy = false

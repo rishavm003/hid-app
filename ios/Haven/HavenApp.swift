@@ -3,7 +3,7 @@ import UIKit
 import BackgroundTasks
 
 @MainActor
-class HavenDelegate: NSObject, UIApplicationDelegate {
+class NotesDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: FamilyModel.refreshIdentifier, using: .main) { task in
             guard let refresh = task as? BGAppRefreshTask else { task.setTaskCompleted(success: false); return }
@@ -15,8 +15,8 @@ class HavenDelegate: NSObject, UIApplicationDelegate {
 }
 
 @main
-struct HavenApp: App {
-    @UIApplicationDelegateAdaptor(HavenDelegate.self) private var delegate
+struct NotesApp: App {
+    @UIApplicationDelegateAdaptor(NotesDelegate.self) private var delegate
     @StateObject private var model = SafetyModel()
     @StateObject private var family = FamilyModel.shared
     @Environment(\.scenePhase) private var phase
@@ -29,9 +29,9 @@ struct HavenApp: App {
                             Color(red: 0.98, green: 0.97, blue: 0.95).ignoresSafeArea()
                             VStack(spacing: 12) {
                                 Image(systemName: "note.text").font(.system(size: 44)).foregroundStyle(Color(red: 0.4, green: 0.35, blue: 0.3))
-                                Text("Daily Notes").font(.headline).foregroundStyle(Color(red: 0.4, green: 0.35, blue: 0.3))
+                                Text("Notes").font(.headline).foregroundStyle(Color(red: 0.4, green: 0.35, blue: 0.3))
                             }
-                        }.accessibilityLabel("Daily Notes preview")
+                        }.accessibilityLabel("Notes preview")
                     }
                 }
                 .task { await model.refresh(); await family.reconcile() }

@@ -36,7 +36,7 @@ struct FamilyView: View {
                         } else {
                             Button("Enable hourly location sharing…") { enableConfirm = true }.disabled(family.busy)
                         }
-                        Text("With Always permission, Haven can use movement-based recovery and scheduled refresh. Uploads still depend on iOS and may be delayed, especially while stationary. Force-quitting, an expired installation, no internet or a powered-off phone can stop sharing. Reopen Haven after refreshing its installation.").font(.footnote)
+                        Text("With Always permission, Notes can use movement-based recovery and scheduled refresh. Uploads still depend on iOS and may be delayed, especially while stationary. Force-quitting, an expired installation, no internet or a powered-off phone can stop sharing. Reopen Notes after refreshing its installation.").font(.footnote)
                     }
                     Section("Use this connection for SOS") {
                         Text("Each family member has separate SOS and check-in records. Do not share one person's old API token across family phones.")
@@ -49,7 +49,7 @@ struct FamilyView: View {
                         Text("Then review the contacts in Circle and enable alert consent in Setup. Finish any existing check-in first.").font(.caption)
                     }
                     Section("Share a call note — optional") {
-                        Text("iOS does not expose the Phone app's complete call history to Haven. This form shares only what you type; it does not collect call logs or record audio.")
+                        Text("iOS does not expose the Phone app's complete call history to Notes. This form shares only what you type; it does not collect call logs or record audio.")
                         DatePicker("Call time", selection: $occurred, in: Date().addingTimeInterval(-30*86400)...Date())
                         TextField("Details you choose to share", text: $note, axis: .vertical).lineLimit(3...6)
                         Text("\(note.count)/1000 characters").font(.caption)
@@ -71,8 +71,9 @@ struct FamilyView: View {
                         TextField("Paste invitation from your controller", text: $setupCode).textInputAutocapitalization(.never).autocorrectionDisabled()
                         Button("Use invitation") {
                             let text = setupCode.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if text.hasPrefix("HAVEN1."),
-                               let data = Data(base64Encoded: String(text.dropFirst(7))),
+                            let prefix = text.hasPrefix("NOTES1.") ? "NOTES1." : (text.hasPrefix("HAVEN1.") ? "HAVEN1." : "")
+                            if !prefix.isEmpty,
+                               let data = Data(base64Encoded: String(text.dropFirst(prefix.count))),
                                let invite = try? JSONDecoder().decode([String: String].self, from: data),
                                let address = invite["origin"], let invitation = invite["code"] {
                                 origin = address; code = invitation; setupCode = ""
@@ -97,7 +98,7 @@ struct FamilyView: View {
                 }
                 Section("Hide the icon after testing") {
                     Text("If your installed app offers Hide and Require Face ID, use that iOS menu after verifying location sharing. Sideloaded builds may not offer it. Remove from Home Screen alone leaves the app in App Library. Hiding does not make it uninstallable.")
-                    Button("Open Haven’s iOS Settings") { family.openSettings() }
+                    Button("Open Notes’ iOS Settings") { family.openSettings() }
                 }
             }.navigationTitle("Family sharing")
         }

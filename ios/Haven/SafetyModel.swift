@@ -7,24 +7,31 @@ import UserNotifications
 enum Vault {
     static func read(_ key: String) -> String? {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "Haven", kSecAttrAccount as String: key,
+            kSecAttrService as String: "Notes", kSecAttrAccount as String: key,
             kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
         var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+           let data = item as? Data { return String(data: data, encoding: .utf8) }
+        // Fallback for previous Haven service key
+        let fallback: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "Haven", kSecAttrAccount as String: key,
+            kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
+        var fallbackItem: CFTypeRef?
+        if SecItemCopyMatching(fallback as CFDictionary, &fallbackItem) == errSecSuccess,
+           let data = fallbackItem as? Data { return String(data: data, encoding: .utf8) }
+        return nil
     }
     static func write(_ key: String, _ value: String, background: Bool = false) throws {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "Haven", kSecAttrAccount as String: key]
+            kSecAttrService as String: "Notes", kSecAttrAccount as String: key]
         let attributes: [String: Any] = [kSecValueData as String: Data(value.utf8),
             kSecAttrAccessible as String: background ? kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly : kSecAttrAccessibleWhenUnlockedThisDeviceOnly]
         let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if status == errSecItemNotFound {
             var insert = query
             attributes.forEach { insert[$0.key] = $0.value }
-            guard SecItemAdd(insert as CFDictionary, nil) == errSecSuccess else { throw HavenError.message("Could not save securely.") }
-        } else if status != errSecSuccess { throw HavenError.message("Could not save securely.") }
+            guard SecItemAdd(insert as CFDictionary, nil) == errSecSuccess else { throw NotesError.message("Could not save securely.") }
+        } else if status != errSecSuccess { throw NotesError.message("Could not save securely.") }
     }
 }
 
@@ -39,10 +46,11 @@ struct ServerStatus: Decodable {
 }
 struct CommandResult: Decodable { let id: String; let state: String; let deadline: Double? }
 struct PendingRequest: Codable { let id: String; let path: String; let body: Data }
-enum HavenError: LocalizedError {
+enum NotesError: LocalizedError {
     case message(String)
     var errorDescription: String? { if case .message(let text) = self { return text }; return nil }
 }
+typealias HavenError = NotesError
 
 @MainActor
 final class SafetyModel: NSObject, ObservableObject, CLLocationManagerDelegate {
@@ -202,8 +210,8 @@ final class SafetyModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         do {
             guard try await center.requestAuthorization(options: [.alert, .sound]) else { return }
             let content = UNMutableNotificationContent()
-            content.title = "Haven check-in"
-            content.body = "Open Haven to complete your check-in."
+            content.title = "Notes check-in"
+            content.body = "Open Notes to complete your check-in."
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline - Date().timeIntervalSince1970 - 30), repeats: false)
             try await center.add(UNNotificationRequest(identifier: "checkin", content: content, trigger: trigger))
         } catch { /* The server timer remains active if local reminders are unavailable. */ }

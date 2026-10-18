@@ -21,9 +21,9 @@ struct ContentView: View {
     var body: some View {
         Group {
             if isUnlocked {
-                havenInterface
+                notesInterface
             } else {
-                DailyNotesDecoyView(secretPin: decoyPin) {
+                NotesDecoyView(secretPin: decoyPin) {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         isUnlocked = true
                     }
@@ -32,19 +32,19 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active {
-                // Instantly lock back to Daily Notes when app is minimized or phone locked
+                // Instantly lock back to Notes when app is minimized or phone locked
                 isUnlocked = false
             }
         }
     }
 
-    private var havenInterface: some View {
+    private var notesInterface: some View {
         TabView(selection: $tab) {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         HStack {
-                            Label("HAVEN", systemImage: "circle.hexagongrid.fill").font(.headline).tracking(3)
+                            Label("NOTES", systemImage: "note.text").font(.headline).tracking(3)
                             Spacer()
                             Text(model.status?.mode == "live" ? "LIVE PILOT" : "DEMO / NOT CONNECTED")
                                 .font(.caption2.bold()).padding(8).background(.white.opacity(0.8), in: Capsule())
@@ -72,7 +72,7 @@ struct ContentView: View {
                                 Button("I’m safe — complete check-in") { Task { await model.send("/v1/checkins/complete") } }
                                     .buttonStyle(.borderedProminent)
                                     .disabled(model.busy || model.pending != nil)
-                                Text("Closing or deleting Haven does not cancel this server timer.").font(.caption)
+                                Text("Closing or deleting Notes does not cancel this server timer.").font(.caption)
                             } else {
                                 Picker("Duration", selection: $minutes) {
                                     ForEach([1, 5, 15, 30, 60], id: \.self) { Text("\($0) min").tag($0) }
@@ -138,7 +138,7 @@ struct ContentView: View {
             FamilyView().tabItem { Label("Family", systemImage: "location.circle") }.tag(3)
             NavigationStack {
                 Form {
-                    Section("Disguise / Decoy Mode") {
+                    Section("Disguise & Security") {
                         HStack {
                             Text("Unlock PIN")
                             Spacer()
@@ -147,9 +147,9 @@ struct ContentView: View {
                                 .multilineTextAlignment(.trailing)
                                 .frame(width: 80)
                         }
-                        Text("When Daily Notes is shown, typing this PIN into the notes search bar or long-pressing the 'Daily Notes' title reveals Haven.")
+                        Text("When Notes is shown, typing this PIN into the search bar or long-pressing the header title reveals controls.")
                             .font(.caption).foregroundStyle(.secondary)
-                        Button("Test Daily Notes disguise now") {
+                        Button("Switch to Notes view now") {
                             withAnimation { isUnlocked = false }
                         }
                     }
@@ -161,8 +161,8 @@ struct ContentView: View {
                         Button("Save and connect") { model.saveSettings() }
                     }.disabled(model.pending != nil || model.busy)
                     Section("Discreet by your choice") {
-                        Text("You can remove Haven from your Home Screen, or use iOS’s Hide and Require Face ID feature where available. It remains discoverable in system records. Hiding may affect notifications and shortcuts; test your exact setup.")
-                        Text("The Home location toggle prepares a sample for an alert or timer. Family sharing is separate: it can send your location in the background only after you join and enable it in Family. You can stop sharing and erase shared data there. Haven does not automatically collect call history or record audio/video.")
+                        Text("You can remove Notes from your Home Screen, or use iOS’s Hide and Require Face ID feature where available. It remains discoverable in system records. Hiding may affect notifications and shortcuts; test your exact setup.")
+                        Text("The Home location toggle prepares a sample for an alert or timer. Family sharing is separate: it can send your location in the background only after you join and enable it in Family. You can stop sharing and erase shared data there. Notes does not automatically collect call history or record audio/video.")
                     }
                     Section("Before relying on this") {
                         Text("This is an unvalidated pilot. Practice with consenting contacts, verify live SMS delivery, and use your iPhone’s built-in Emergency SOS for emergency services. A server outage, dead battery, lost connection or SMS failure can prevent help from reaching you.")
@@ -208,13 +208,13 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Daily Notes Decoy Screen
+// MARK: - Notes Decoy Screen
 
-struct DailyNotesDecoyView: View {
+struct NotesDecoyView: View {
     let secretPin: String
     let onUnlock: () -> Void
 
-    @AppStorage("haven_decoy_notes_json") private var notesJson: String = ""
+    @AppStorage("notes_decoy_notes_json") private var notesJson: String = ""
     @State private var notes: [DailyNote] = []
     @State private var searchText = ""
     @State private var selectedNote: DailyNote?
@@ -260,18 +260,18 @@ struct DailyNotesDecoyView: View {
             .listStyle(.insetGrouped)
             .searchable(text: $searchText, prompt: "Search notes")
             .onChange(of: searchText) { _, newValue in
-                // Discreet trigger: Typing the secret PIN into search bar reveals Haven immediately
+                // Discreet trigger: Typing the secret PIN into search bar reveals controls immediately
                 if newValue.trimmingCharacters(in: .whitespaces) == secretPin {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     searchText = ""
                     onUnlock()
                 }
             }
-            .navigationTitle("Daily Notes")
+            .navigationTitle("Notes")
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     // Discreet trigger: Long pressing the header title for 1.2s opens the PIN pad
-                    Text("Daily Notes")
+                    Text("Notes")
                         .font(.headline)
                         .onLongPressGesture(minimumDuration: 1.2) {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
