@@ -1,0 +1,40 @@
+name: Build iPhone test package
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check iPhone source files
+        run: |
+          for file in ios/project.yml ios/Haven/HavenApp.swift ios/Haven/SafetyModel.swift ios/Haven/ContentView.swift ios/Haven/FamilyModel.swift ios/Haven/FamilyView.swift; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Missing $file at the repository root. Extract Haven-GitHub-Build-Files.zip and upload its contents to the root of the main branch."
+              exit 1
+            fi
+          done
+      - name: Install project generator
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate --spec ios/project.yml
+      - name: Compile for a physical iPhone without distribution signing
+        run: >-
+          xcodebuild -project ios/Haven.xcodeproj -scheme Haven
+          -configuration Release -sdk iphoneos -destination 'generic/platform=iOS'
+          -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - name: Package for local signing by AltStore
+        run: |
+          mkdir -p package/Payload
+          cp -R build/Build/Products/Release-iphoneos/Haven.app package/Payload/
+          cd package
+          zip -qry Haven-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Haven-iPhone-test-package
+          path: package/Haven-unsigned.ipa
+          retention-days: 3
+          if-no-files-found: error
