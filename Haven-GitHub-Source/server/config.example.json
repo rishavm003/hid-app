@@ -1,0 +1,7 @@
+{
+  "display_name": "Your name",
+  "controller_name": "Family controller name",
+  "contacts": [
+    {"name": "Trusted contact", "phone": "+15555550123"}
+  ]
+}
