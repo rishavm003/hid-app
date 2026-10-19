@@ -47,11 +47,13 @@ class Controller:
         buttons = ttk.Frame(panel)
         buttons.pack(fill='x', pady=(0, 12))
         ttk.Button(buttons, text='Create invitation', command=self.invite).pack(side='left')
-        ttk.Button(buttons, text='Open last location in Maps', command=self.open_map).pack(side='left', padx=12)
-        ttk.Button(buttons, text='Revoke selected device', command=self.revoke).pack(side='left')
-        self.tree = ttk.Treeview(panel, columns=('name', 'status', 'captured', 'coordinates'), show='headings', height=7)
-        for key, title, width in [('name', 'Family member', 150), ('status', 'Sharing / freshness', 140),
-                                  ('captured', 'Location captured (local time)', 230), ('coordinates', 'Latitude, longitude', 220)]:
+        ttk.Button(buttons, text='📍 Locate device now', command=self.locate_now).pack(side='left', padx=8)
+        ttk.Button(buttons, text='Open in Maps', command=self.open_map).pack(side='left', padx=8)
+        ttk.Button(buttons, text='Revoke selected device', command=self.revoke).pack(side='left', padx=8)
+        self.tree = ttk.Treeview(panel, columns=('name', 'battery', 'status', 'captured', 'coordinates'), show='headings', height=7)
+        for key, title, width in [('name', 'Device / Member', 140), ('battery', 'Battery %', 110),
+                                  ('status', 'Sharing / status', 130),
+                                  ('captured', 'Location captured', 190), ('coordinates', 'Latitude, longitude', 210)]:
             self.tree.heading(key, text=title)
             self.tree.column(key, width=width)
         self.tree.pack(fill='both', expand=True)
@@ -121,11 +123,18 @@ class Controller:
         for key, member in self.members.items():
             loc = member['location']
             coords = f"{loc['latitude']:.5f}, {loc['longitude']:.5f}" if loc else 'Not shared'
-            self.tree.insert('', 'end', iid=key, values=(member['name'], member['status'].replace('_', ' '), stamp(loc['timestamp']) if loc else 'Never', coords))
+            bat = member.get('battery')
+            charging = member.get('charging', False)
+            if bat is not None:
+                bat_str = f"⚡ {bat}%" if charging else f"⚠️ {bat}%" if bat <= 15 else f"🔋 {bat}%"
+            else:
+                bat_str = "—"
+            status_str = "📍 LOCATING..." if member.get('locate_requested') else member['status'].replace('_', ' ')
+            self.tree.insert('', 'end', iid=key, values=(member['name'], bat_str, status_str, stamp(loc['timestamp']) if loc else 'Never', coords))
         if selected and selected[0] in self.members:
             self.tree.selection_set(selected)
         self.details()
-        self.status.set(f"Connected as {payload['controller_name']} • refreshed {stamp(payload['server_time'])} • updates requested every 60 seconds")
+        self.status.set(f"Connected as {payload['controller_name']} • refreshed {stamp(payload['server_time'])} • auto-refreshes every 60 seconds")
 
     def selected(self):
         selection = self.tree.selection()
@@ -133,12 +142,16 @@ class Controller:
 
     def details(self):
         member = self.selected()
-        text = 'Select a family member to see their last report and shared notes.'
+        text = 'Select a device from the table above to view real-time battery, coordinates, and notes.'
         if member:
             loc = member['location']
-            text = f"{member['name']} — {member['status']}\nLast received by server: {stamp(member['received'])}\n"
+            bat = member.get('battery')
+            charging = member.get('charging', False)
+            bat_info = f"Battery: {bat}% ({'Charging ⚡' if charging else 'On battery'})\n" if bat is not None else ""
+            trigger_info = f"Trigger: {loc.get('trigger', 'periodic')}\n" if loc and loc.get('trigger') else ""
+            text = f"{member['name']} — {member['status'].upper()}\nLast seen by server: {stamp(member['last_contact'])}\n{bat_info}{trigger_info}"
             if loc:
-                text += f"Location captured: {stamp(loc['timestamp'])}; accuracy approximately {loc['accuracy']:.0f} m.\n"
+                text += f"Location timestamp: {stamp(loc['timestamp'])}; accuracy: ±{loc['accuracy']:.0f} m\nCoordinates: {loc['latitude']}, {loc['longitude']}\n"
             text += '\nManual call notes (latest 100, retained 30 days):\n'
             text += '\n\n'.join(f"{stamp(note['occurred'])}\n{note['text']}" for note in member['notes']) or 'No notes shared.'
         self.detail.configure(state='normal')
@@ -146,12 +159,25 @@ class Controller:
         self.detail.insert('1.0', text)
         self.detail.configure(state='disabled')
 
+    def locate_now(self):
+        member = self.selected()
+        if not member:
+            messagebox.showinfo('Select device', 'Please select a device from the table above to locate it.')
+            return
+        def on_locate(res):
+            self.status.set(f"📍 Locate request sent to {member['name']}! Waiting for device to acquire GPS and report...")
+            self.refresh()
+            self.root.after(3000, self.refresh)
+            self.root.after(8000, self.refresh)
+            self.root.after(16000, self.refresh)
+        self.call('/v1/controller/locate', {'id': member['id']}, on_locate)
+
     def invite(self):
         def show(payload):
             self.status.set('Invitation created. Share privately with the phone owner; expires in 10 minutes.')
             dialog = tk.Toplevel(self.root)
             dialog.title('One-use family invitation')
-            ttk.Label(dialog, text='On the iPhone: Notes → Family → Paste invitation. Review the controller, join, then enable sharing.', wraplength=500).pack(padx=20, pady=12)
+            ttk.Label(dialog, text='On the phone: Notes → Family → Paste invitation. Review the controller, join, then enable sharing.', wraplength=500).pack(padx=20, pady=12)
             invite_origin = self.public_origin or self.origin.get().strip().rstrip('/')
             setup_code = 'NOTES1.' + base64.b64encode(json.dumps({'origin': invite_origin, 'code': payload['code']}).encode()).decode()
             entry = ttk.Entry(dialog, width=55)
@@ -175,7 +201,9 @@ class Controller:
         member = self.selected()
         if member and member['location']:
             loc = member['location']
-            webbrowser.open(f"https://maps.apple.com/?ll={loc['latitude']},{loc['longitude']}")
+            webbrowser.open(f"https://www.google.com/maps?q={loc['latitude']},{loc['longitude']}")
+        elif member:
+            messagebox.showinfo('No location', f"No location has been received from {member['name']} yet.")
 
     def disconnect(self):
         self.generation += 1

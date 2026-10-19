@@ -44,7 +44,10 @@ data class LocationPayload(
     val latitude: Double,
     val longitude: Double,
     val accuracy: Double,
-    val timestamp: Double
+    val timestamp: Double,
+    val battery: Int? = null,
+    val charging: Boolean? = null,
+    val trigger: String? = null
 )
 
 data class PendingRequest(

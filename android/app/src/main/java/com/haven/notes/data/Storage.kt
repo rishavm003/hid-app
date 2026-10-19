@@ -148,4 +148,21 @@ class Storage(context: Context) {
         val current = familySession ?: return
         familySession = current.copy(origin = newOrigin)
     }
+
+    var offlineLocation: LocationPayload?
+        get() {
+            val json = prefs.getString("offline_location_json", null) ?: return null
+            return try {
+                gson.fromJson(json, LocationPayload::class.java)
+            } catch (_: Exception) {
+                null
+            }
+        }
+        set(value) {
+            if (value == null) {
+                prefs.edit().remove("offline_location_json").apply()
+            } else {
+                prefs.edit().putString("offline_location_json", gson.toJson(value)).apply()
+            }
+        }
 }

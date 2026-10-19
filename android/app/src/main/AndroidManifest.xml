@@ -58,6 +58,15 @@
             android:name=".service.ReminderReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".service.BatteryReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BATTERY_LOW" />
+                <action android:name="android.intent.action.ACTION_SHUTDOWN" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

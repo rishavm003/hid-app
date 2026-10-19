@@ -41,6 +41,7 @@ class Family:
               PRIMARY KEY(member_id, id));
         ''')
         self.services = {}
+        self.locate_requests = {}
         for member in self.db.execute('SELECT * FROM members').fetchall():
             self.services[member['id']] = self._service(member['id'], member['name'])
 
@@ -146,7 +147,21 @@ class Family:
                 return {'state': 'ignored_older_sample'}
             self.db.execute('UPDATE members SET location=?,received=?,seen=? WHERE id=?',
                             (location, self.clock(), self.clock(), member_id))
+            self.locate_requests[member_id] = False
         return {'state': 'saved'}
+
+    def locate(self, member_id):
+        with self.lock:
+            self._member(member_id)
+            self.locate_requests[member_id] = True
+        return {'state': 'locate_requested'}
+
+    def ping(self, member_id):
+        with self.lock, self.db:
+            self._member(member_id)
+            self.db.execute('UPDATE members SET seen=? WHERE id=?', (self.clock(), member_id))
+            requested = self.locate_requests.get(member_id, False)
+        return {'locate_now': bool(requested)}
 
     def note(self, member_id, body):
         note_id, note, occurred = body.get('id'), body.get('text'), body.get('occurred')
@@ -190,6 +205,10 @@ class Family:
                 members.append({'id': row['id'], 'name': row['name'], 'sharing': bool(row['sharing']),
                     'revoked': bool(row['revoked']), 'location': loc, 'received': row['received'],
                     'last_contact': row['seen'], 'age_seconds': age,
+                    'battery': loc.get('battery') if loc else None,
+                    'charging': loc.get('charging') if loc else False,
+                    'trigger': loc.get('trigger') if loc else None,
+                    'locate_requested': bool(self.locate_requests.get(row['id'], False)),
                     'status': 'revoked' if row['revoked'] else 'paused' if not row['sharing'] else 'no_sample' if not loc else 'stale' if age > 5400 else 'recent',
                     'notes': [dict(n) for n in self.db.execute('SELECT id,occurred,text,created FROM notes WHERE member_id=? ORDER BY occurred DESC LIMIT 100', (row['id'],))]})
             return {'controller_name': self.config['controller_name'], 'members': members, 'server_time': self.clock()}
@@ -257,6 +276,8 @@ def handler(family, allow_controller=True):
                             result = family.dashboard()
                         elif post and self.path == '/v1/controller/invites':
                             result = family.invite()
+                        elif post and self.path == '/v1/controller/locate':
+                            result = family.locate(str(body.get('id')))
                         elif post and self.path == '/v1/controller/revoke':
                             result = family.revoke(str(body.get('id')))
                         else:
@@ -268,6 +289,8 @@ def handler(family, allow_controller=True):
                         # Member identity comes only from the token, never from a request's ID field.
                         if not post and self.path == '/v1/family/me':
                             result = family.me(identity)
+                        elif not post and self.path == '/v1/family/ping':
+                            result = family.ping(identity)
                         elif post and self.path == '/v1/family/sharing':
                             result = family.sharing(identity, body.get('enabled'))
                         elif post and self.path == '/v1/family/location':

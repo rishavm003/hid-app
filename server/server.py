@@ -51,6 +51,12 @@ class Service:
             if isinstance(n, bool) or not isinstance(n, (int, float)) or not math.isfinite(n) or not low <= n <= high:
                 raise ValueError('Invalid location')
             clean[key] = n
+        if 'battery' in value and isinstance(value['battery'], (int, float)) and 0 <= value['battery'] <= 100:
+            clean['battery'] = int(value['battery'])
+        if 'charging' in value and isinstance(value['charging'], bool):
+            clean['charging'] = value['charging']
+        if 'trigger' in value and isinstance(value['trigger'], str):
+            clean['trigger'] = value['trigger'][:32]
         if self.clock() - clean['timestamp'] > 120:
             raise ValueError('Location is stale; retry without it')
         return json.dumps(clean)
