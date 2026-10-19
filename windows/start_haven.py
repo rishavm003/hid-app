@@ -108,6 +108,7 @@ def main():
                     controller = Controller(root, (local, token), origin)
                     root.title('Notes • Family controller • Free test mode')
                     (ROOT / 'windows' / 'private' / 'connection.json').write_text(json.dumps({'origin': origin}), encoding='utf-8')
+                    (ROOT / 'release' / 'connection.json').write_text(json.dumps({'origin': origin}), encoding='utf-8')
                 elif kind in ('error', 'warning'):
                     if controller: controller.status.set(value)
                     else: status.set(value)

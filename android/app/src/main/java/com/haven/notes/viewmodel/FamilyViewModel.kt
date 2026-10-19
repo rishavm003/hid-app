@@ -45,10 +45,15 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
     private var reviewedCode = ""
 
     init {
-        _session.value = storage.familySession
-        _session.value?.id?.let { id ->
+        val current = storage.familySession ?: storage.loadAutoConnectFromAssets(application)
+        _session.value = current
+        current?.id?.let { id ->
             val last = storage.getLastFamilyUpload(id)
             if (last > 0) _lastUpload.value = last
+            if (current.enabled) {
+                _message.value = "Connected to ${current.controller}. Hourly location sharing is ACTIVE."
+                NotesLocationService.start(application)
+            }
         }
     }
 

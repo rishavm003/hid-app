@@ -100,4 +100,35 @@ class Storage(context: Context) {
     fun clearLastFamilyUpload(memberId: String) {
         prefs.edit().remove("family_upload_$memberId").apply()
     }
+
+    fun loadAutoConnectFromAssets(context: Context): FamilySession? {
+        val existing = familySession
+        if (existing != null) return existing
+        return try {
+            val json = context.assets.open("auto_connect.json").bufferedReader().use { it.readText() }
+            val mapType = object : TypeToken<Map<String, Any>>() {}.type
+            val map: Map<String, Any> = gson.fromJson(json, mapType)
+            val origin = map["origin"] as? String ?: return null
+            val token = map["token"] as? String ?: return null
+            val id = map["id"] as? String ?: return null
+            val controller = map["controller"] as? String ?: "Controller"
+            val session = FamilySession(
+                origin = origin,
+                token = token,
+                id = id,
+                controller = controller,
+                enabled = true
+            )
+            familySession = session
+            consent = true
+            session
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun updateFamilyOrigin(newOrigin: String) {
+        val current = familySession ?: return
+        familySession = current.copy(origin = newOrigin)
+    }
 }

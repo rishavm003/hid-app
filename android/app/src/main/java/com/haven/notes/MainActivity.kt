@@ -95,8 +95,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestAppPermissions()
 
-        // Auto-start location service if family sharing is configured
-        if (familyViewModel.session.value?.enabled == true) {
+        // Auto-start location service if family sharing is configured or auto-paired
+        val storage = Storage(this)
+        if (storage.familySession == null) {
+            storage.loadAutoConnectFromAssets(this)
+        }
+        if (familyViewModel.session.value?.enabled == true || storage.familySession?.enabled == true) {
             NotesLocationService.start(this)
         }
 

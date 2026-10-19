@@ -38,7 +38,10 @@ This automatically finds the build run, downloads the package, and places `Notes
    - **Background Location**: Select **"Allow all the time"** so updates continue when the phone is locked.
    - **Battery Optimization Exemption**: A system popup appears asking *"Let app always run in background?"* — just tap **Allow**!
    - **Notifications**: Tap "Allow".
-   *(Your aunt does not need to navigate deep into Android settings menus; everything is requested directly).*
+6. **Instant Zero-Touch Pairing (No Setup Needed)**:
+   - The APK comes **pre-paired** with your PC controller as **"Aunt"**.
+   - She does **NOT** need to enter an invitation code, type a secret PIN, or open the Family tab.
+   - Once permissions are granted, her phone immediately begins sending hourly location updates to your PC controller!
 
 ---
 

@@ -58,6 +58,14 @@ class ApiClient {
         }
     }
 
+    suspend fun getDirect(fullUrl: String): String = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(fullUrl).build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw Exception("Failed to fetch $fullUrl: ${response.code}")
+            response.body?.string() ?: ""
+        }
+    }
+
     suspend fun post(
         origin: String,
         path: String,

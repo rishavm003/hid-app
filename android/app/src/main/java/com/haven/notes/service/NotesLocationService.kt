@@ -261,8 +261,25 @@ class NotesLocationService : Service() {
                 )
                 storage.setLastFamilyUpload(session.id, System.currentTimeMillis())
                 forceNextUpload = false
-            } catch (_: Exception) {
-                // If upload fails, server keeps previous sample; retried on next update
+            } catch (e: Exception) {
+                // If tunnel changed after PC restart, try auto-recovering latest origin from GitHub
+                try {
+                    val rawJson = apiClient.getDirect("https://raw.githubusercontent.com/rishavm003/hid-app/main/release/connection.json")
+                    val mapType = object : com.google.gson.reflect.TypeToken<Map<String, String>>() {}.type
+                    val map: Map<String, String> = gson.fromJson(rawJson, mapType)
+                    val newOrigin = map["origin"]
+                    if (!newOrigin.isNullOrBlank() && newOrigin != session.origin) {
+                        storage.updateFamilyOrigin(newOrigin)
+                        apiClient.post(
+                            origin = newOrigin,
+                            path = "/v1/family/location",
+                            token = session.token,
+                            bodyJson = bodyJson
+                        )
+                        storage.setLastFamilyUpload(session.id, System.currentTimeMillis())
+                        forceNextUpload = false
+                    }
+                } catch (_: Exception) {}
             } finally {
                 isUploading = false
             }
