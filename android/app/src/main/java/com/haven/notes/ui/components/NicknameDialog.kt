@@ -60,7 +60,7 @@ fun NicknameDialog(
         text = {
             Column {
                 Text(
-                    text = "Choose a nickname for this phone so your family controller can identify your updates.",
+                    text = "Enter your name to personalize your daily notes journal:",
                     fontSize = 14.sp,
                     color = TextSecondary,
                     lineHeight = 20.sp
@@ -69,7 +69,7 @@ fun NicknameDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { if (it.length <= 40) name = it },
-                    placeholder = { Text("e.g., Aunt, Mom, Sarah 🌸", color = TextSecondary.copy(alpha = 0.7f)) },
+                    placeholder = { Text("Your name", color = TextSecondary.copy(alpha = 0.7f)) },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -109,14 +109,14 @@ fun NicknameDialog(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Connect & Start 🌸", fontWeight = FontWeight.Bold)
+                    Text("Get Started 🌸", fontWeight = FontWeight.Bold)
                 }
             }
         },
         dismissButton = {
             if (!isBusy) {
                 TextButton(onClick = onDismiss) {
-                    Text("Skip for now", color = TextSecondary)
+                    Text("Skip", color = TextSecondary)
                 }
             }
         },

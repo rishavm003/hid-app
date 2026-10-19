@@ -69,7 +69,7 @@ def main():
             private = ROOT / 'windows' / 'private'
             private.mkdir(parents=True, exist_ok=True)
             token = load_token(private)
-            family = Family(private / 'family-data', token, {'controller_name': 'My family controller', 'contacts': []})
+            family = Family(private / 'family-data', token, {'controller_name': 'Notes Cloud', 'contacts': []})
             resources['family'] = family
             internal = ThreadingHTTPServer(('127.0.0.1', 0), handler(family))
             public = ThreadingHTTPServer(('127.0.0.1', 0), handler(family, allow_controller=False))

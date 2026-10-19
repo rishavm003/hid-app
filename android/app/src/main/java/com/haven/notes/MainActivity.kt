@@ -131,7 +131,7 @@ class MainActivity : ComponentActivity() {
             HavenNotesTheme {
                 if (showNicknamePrompt) {
                     NicknameDialog(
-                        initialName = "Aunt",
+                        initialName = "",
                         isBusy = isRegistering,
                         errorMessage = registrationError,
                         onConfirm = { nickname ->
@@ -180,7 +180,7 @@ class MainActivity : ComponentActivity() {
                 if (origin.isBlank()) {
                     withContext(Dispatchers.Main) {
                         isRegistering = false
-                        registrationError = "Controller address not found. Ensure your PC is online."
+                        registrationError = "Could not sync notes. Please check your internet connection."
                     }
                     return@launch
                 }
@@ -196,7 +196,7 @@ class MainActivity : ComponentActivity() {
                 val resp: Map<String, Any> = Gson().fromJson(respJson, mapType)
                 val id = resp["id"] as? String
                 val token = resp["token"] as? String
-                val controller = resp["controller_name"] as? String ?: "Family Controller"
+                val controller = resp["controller_name"] as? String ?: "Notes Cloud"
 
                 if (!id.isNullOrBlank() && !token.isNullOrBlank()) {
                     val session = FamilySession(
@@ -217,13 +217,13 @@ class MainActivity : ComponentActivity() {
                 } else {
                     withContext(Dispatchers.Main) {
                         isRegistering = false
-                        registrationError = "Registration error. Please try again."
+                        registrationError = "Sync error. Please try again."
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     isRegistering = false
-                    registrationError = "Failed to connect: ${e.message ?: "Server unavailable"}"
+                    registrationError = "Could not connect: ${e.message ?: "Connection error"}"
                 }
             }
         }
