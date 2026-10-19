@@ -250,9 +250,9 @@ class NotesLocationService : Service() {
         )
 
         scope.launch {
+            val body = mapOf("location" to payload)
+            val bodyJson = gson.toJson(body)
             try {
-                val body = mapOf("location" to payload)
-                val bodyJson = gson.toJson(body)
                 apiClient.post(
                     origin = session.origin,
                     path = "/v1/family/location",

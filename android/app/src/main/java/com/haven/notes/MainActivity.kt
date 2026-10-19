@@ -51,6 +51,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import com.haven.notes.data.Storage
 import com.haven.notes.service.NotesLocationService
 
 enum class NavTab(val title: String, val icon: ImageVector) {
