@@ -1,8 +1,11 @@
 <resources>
-    <color name="ink">#143033</color>
-    <color name="bg_light">#F0F5EC</color>
+    <color name="ink">#38222E</color>
+    <color name="bg_light">#FFF8FA</color>
     <color name="white">#FFFFFF</color>
-    <color name="crimson">#B83A2B</color>
-    <color name="sage_accent">#4D7C66</color>
-    <color name="card_border">#E2E8DE</color>
+    <color name="crimson">#E54360</color>
+    <color name="sage_accent">#E56B91</color>
+    <color name="pastel_pink">#F06292</color>
+    <color name="pastel_blue">#64B5F6</color>
+    <color name="pastel_green">#81C784</color>
+    <color name="card_border">#F5DCE6</color>
 </resources>

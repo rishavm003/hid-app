@@ -5,12 +5,18 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 private val ColorScheme = lightColorScheme(
-    primary = Ink,
+    primary = PastelRose,
     onPrimary = CardBackground,
-    primaryContainer = BackgroundLight,
-    onPrimaryContainer = Ink,
-    secondary = SageAccent,
+    primaryContainer = NotePink,
+    onPrimaryContainer = TextPrimary,
+    secondary = PastelSkyBlue,
     onSecondary = CardBackground,
+    secondaryContainer = NoteBlue,
+    onSecondaryContainer = TextPrimary,
+    tertiary = PastelMintGreen,
+    onTertiary = CardBackground,
+    tertiaryContainer = NoteGreen,
+    onTertiaryContainer = TextPrimary,
     background = BackgroundLight,
     onBackground = TextPrimary,
     surface = CardBackground,

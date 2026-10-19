@@ -34,9 +34,11 @@ class Storage(context: Context) {
     private fun defaultNotes(): List<DailyNote> {
         val now = System.currentTimeMillis()
         return listOf(
-            DailyNote(title = "Grocery list", content = "Oat milk, coffee beans, olive oil, spinach, lemons", date = now - 3600000 * 2),
-            DailyNote(title = "Ideas for weekend", content = "Check out the new farmer's market on Saturday morning.", date = now - 86400000),
-            DailyNote(title = "Meeting summary", content = "Q3 targets look achievable. Follow up with team by Wednesday.", date = now - 86400000 * 3)
+            DailyNote(title = "Smoothie recipes 🍓", content = "Strawberries, fresh blueberries, mint leaves, chia seeds & oat milk.", date = now - 3600000 * 2, colorIndex = 0),
+            DailyNote(title = "Weekend wishlist 🌸", content = "Floral tea set, pastel blue linen journal, lavender diffuser oils.", date = now - 86400000, colorIndex = 1),
+            DailyNote(title = "Garden & plants 🌿", content = "Water the monstera, jasmine, and succulent pots every Sunday morning.", date = now - 86400000 * 2, colorIndex = 2),
+            DailyNote(title = "Self-care checklist ✨", content = "Rose water face mist, 20 mins reading, evening herbal tea.", date = now - 86400000 * 3, colorIndex = 3),
+            DailyNote(title = "Morning bakery run 🥐", content = "Almond croissants, iced vanilla latte, sourdough bread.", date = now - 86400000 * 4, colorIndex = 4)
         )
     }
 

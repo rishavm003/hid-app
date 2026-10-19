@@ -65,7 +65,8 @@ data class DailyNote(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
     val content: String,
-    val date: Long = System.currentTimeMillis()
+    val date: Long = System.currentTimeMillis(),
+    val colorIndex: Int = 0
 )
 
 data class PreviewResponse(

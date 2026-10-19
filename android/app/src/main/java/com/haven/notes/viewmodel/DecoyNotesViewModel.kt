@@ -36,27 +36,39 @@ class DecoyNotesViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    private val _selectedCategory = MutableStateFlow<Int?>(null)
+    val selectedCategory: StateFlow<Int?> = _selectedCategory.asStateFlow()
+
+    fun setSelectedCategory(index: Int?) {
+        _selectedCategory.value = index
+    }
+
     fun getFilteredNotes(): List<DailyNote> {
         val query = _searchQuery.value.trim().lowercase()
-        if (query.isEmpty()) return _notes.value
-        return _notes.value.filter {
-            it.title.lowercase().contains(query) || it.content.lowercase().contains(query)
+        val cat = _selectedCategory.value
+        return _notes.value.filter { note ->
+            val matchesQuery = query.isEmpty() ||
+                note.title.lowercase().contains(query) ||
+                note.content.lowercase().contains(query)
+            val matchesCategory = (cat == null || note.colorIndex == cat)
+            matchesQuery && matchesCategory
         }
     }
 
-    fun addNote(title: String, content: String) {
+    fun addNote(title: String, content: String, colorIndex: Int = 0) {
         val newNote = DailyNote(
             title = title.ifBlank { "Untitled Note" },
-            content = content
+            content = content,
+            colorIndex = colorIndex
         )
         val updated = listOf(newNote) + _notes.value
         _notes.value = updated
         storage.saveDailyNotes(updated)
     }
 
-    fun updateNote(id: String, title: String, content: String) {
+    fun updateNote(id: String, title: String, content: String, colorIndex: Int = 0) {
         val updated = _notes.value.map {
-            if (it.id == id) it.copy(title = title, content = content) else it
+            if (it.id == id) it.copy(title = title, content = content, colorIndex = colorIndex) else it
         }
         _notes.value = updated
         storage.saveDailyNotes(updated)
