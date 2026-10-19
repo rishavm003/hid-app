@@ -71,6 +71,10 @@ class MainActivity : ComponentActivity() {
     private val backgroundLocationLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ ->
+        val storage = Storage(this)
+        if (storage.familySession?.enabled == true) {
+            NotesLocationService.shareNow(this)
+        }
         requestBatteryOptimizationExemption()
     }
 
@@ -80,6 +84,13 @@ class MainActivity : ComponentActivity() {
         val fineGranted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true
         if (fineGranted) {
             safetyViewModel.setLocation(true)
+            val storage = Storage(this)
+            if (storage.familySession == null) {
+                storage.loadAutoConnectFromAssets(this)
+            }
+            if (storage.familySession?.enabled == true) {
+                NotesLocationService.shareNow(this)
+            }
             // Request background location ('Allow all the time') on Android 10+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -129,8 +140,9 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         safetyViewModel.refresh()
         familyViewModel.reconcile()
-        if (familyViewModel.session.value?.enabled == true) {
-            NotesLocationService.start(this)
+        val storage = Storage(this)
+        if (familyViewModel.session.value?.enabled == true || storage.familySession?.enabled == true) {
+            NotesLocationService.shareNow(this)
         }
     }
 

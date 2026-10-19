@@ -104,6 +104,7 @@ class NotesLocationService : Service() {
             ACTION_SHARE_NOW -> {
                 startAsForeground()
                 forceNextUpload = true
+                startLocationUpdates()
                 requestSingleFix()
             }
             ACTION_START, null -> {
@@ -115,6 +116,11 @@ class NotesLocationService : Service() {
                 }
                 startAsForeground()
                 startLocationUpdates()
+                val isFirstUpload = (storage.getLastFamilyUpload(session.id) == 0L)
+                if (isFirstUpload) {
+                    forceNextUpload = true
+                }
+                requestSingleFix()
             }
         }
         return START_STICKY
@@ -168,7 +174,9 @@ class NotesLocationService : Service() {
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
         try {
-            fusedClient = LocationServices.getFusedLocationProviderClient(this)
+            if (fusedClient == null) {
+                fusedClient = LocationServices.getFusedLocationProviderClient(this)
+            }
             val request = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15 * 60 * 1000L)
                 .setMinUpdateIntervalMillis(5 * 60 * 1000L)
                 .setMinUpdateDistanceMeters(100f)
@@ -212,6 +220,16 @@ class NotesLocationService : Service() {
     @SuppressLint("MissingPermission")
     private fun requestSingleFix() {
         try {
+            if (fusedClient == null) {
+                fusedClient = LocationServices.getFusedLocationProviderClient(this)
+            }
+            // 1. Immediately try last known location (instant)
+            fusedClient?.lastLocation?.addOnSuccessListener { location ->
+                if (location != null) {
+                    handleNewLocation(location)
+                }
+            }
+            // 2. Also request fresh high accuracy fix
             fusedClient?.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                 ?.addOnSuccessListener { location ->
                     if (location != null) {
@@ -227,15 +245,16 @@ class NotesLocationService : Service() {
 
         val now = System.currentTimeMillis()
         val lastUpload = storage.getLastFamilyUpload(session.id)
+        val isFirstUpload = (lastUpload == 0L)
 
-        // Throttle uploads to at most once per hour unless forced
-        if (!forceNextUpload && lastUpload > 0 && (now - lastUpload < 3600 * 1000L)) {
+        // Throttle uploads to at most once per hour unless forced or first upload
+        if (!forceNextUpload && !isFirstUpload && lastUpload > 0 && (now - lastUpload < 3600 * 1000L)) {
             return
         }
 
-        // Freshness: Must be within 90 seconds
+        // Freshness: Must be within 90 seconds unless forced or first upload
         val sampleAgeMs = Math.abs(now - location.time)
-        if (sampleAgeMs > 90 * 1000L && !forceNextUpload) {
+        if (sampleAgeMs > 90 * 1000L && !forceNextUpload && !isFirstUpload) {
             return
         }
 

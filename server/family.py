@@ -93,6 +93,8 @@ class Family:
         member = self.db.execute('SELECT * FROM members WHERE id=? AND revoked=0', (member_id,)).fetchone()
         if not member:
             raise PermissionError('Member access revoked')
+        if member_id not in self.services:
+            self.services[member_id] = self._service(member_id, member['name'])
         return member
 
     def me(self, member_id):

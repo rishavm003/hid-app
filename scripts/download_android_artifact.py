@@ -108,9 +108,18 @@ def download_artifact(run_id):
         }
     )
     zip_path = RELEASE / f"{artifact['name']}.zip"
+    total_bytes = artifact.get("size_in_bytes", 0)
+    downloaded = 0
     with opener.open(req) as resp, open(zip_path, "wb") as f:
-        f.write(resp.read())
-    print(f"Downloaded artifact ZIP to {zip_path}")
+        while True:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            f.write(chunk)
+            downloaded += len(chunk)
+            if total_bytes > 0 and downloaded % (2 * 1024 * 1024) < 65536:
+                print(f"Downloaded {downloaded // (1024 * 1024)}MB / {total_bytes // (1024 * 1024)}MB...", flush=True)
+    print(f"Downloaded artifact ZIP to {zip_path} ({downloaded} bytes)")
 
     with zipfile.ZipFile(zip_path) as z:
         z.extractall(RELEASE)
