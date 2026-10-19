@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: notes-safety-cloud
+    runtime: python
+    buildCommand: ""
+    startCommand: "python server/cloud_server.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PORT
+        value: 10000
+      - key: DASHBOARD_PIN
+        value: "1998"

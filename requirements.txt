@@ -1,0 +1,2 @@
+# Zero third-party dependencies required.
+# Uses Python standard library (http.server, sqlite3, threading, json, secrets).
