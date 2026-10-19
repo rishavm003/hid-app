@@ -7,7 +7,19 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import subprocess
+import re
+
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
+if not TOKEN:
+    try:
+        remote_url = subprocess.check_output(["git", "config", "--get", "remote.origin.url"], text=True).strip()
+        match = re.search(r":([^@:]+)@github\.com", remote_url)
+        if match:
+            TOKEN = match.group(1)
+    except Exception:
+        pass
+
 REPO = os.environ.get("GITHUB_REPOSITORY", "rishavm003/hid-app")
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = ROOT / "release"
