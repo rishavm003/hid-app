@@ -42,10 +42,10 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -203,8 +203,9 @@ fun DecoyNotesScreen(
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    containerColor = CardBackground,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = CardBackground,
+                    unfocusedContainerColor = CardBackground,
                     unfocusedBorderColor = DecoySearchBorder,
                     focusedBorderColor = PastelRose
                 ),
@@ -233,9 +234,7 @@ fun DecoyNotesScreen(
                             containerColor = CardBackground,
                             labelColor = TextSecondary
                         ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            borderColor = if (isAll) PastelRose else DecoySearchBorder
-                        )
+                        border = BorderStroke(1.dp, if (isAll) PastelRose else DecoySearchBorder)
                     )
                 }
                 items(NotePalettes) { palette ->
@@ -263,9 +262,7 @@ fun DecoyNotesScreen(
                             containerColor = CardBackground,
                             labelColor = TextSecondary
                         ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            borderColor = if (isSelected) palette.accent else DecoySearchBorder
-                        )
+                        border = BorderStroke(1.dp, if (isSelected) palette.accent else DecoySearchBorder)
                     )
                 }
             }
@@ -325,6 +322,7 @@ fun DecoyNotesScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteCard(
     note: DailyNote,
@@ -429,6 +427,7 @@ fun NoteCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorDialog(
     note: DailyNote?,
@@ -507,9 +506,11 @@ fun NoteEditorDialog(
                     placeholder = { Text("e.g., Weekend plans 🌸") },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                    colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = currentPalette.accent,
-                        unfocusedBorderColor = currentPalette.border
+                        unfocusedBorderColor = currentPalette.border,
+                        focusedContainerColor = CardBackground,
+                        unfocusedContainerColor = CardBackground
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -522,9 +523,11 @@ fun NoteEditorDialog(
                     minLines = 4,
                     maxLines = 8,
                     shape = RoundedCornerShape(14.dp),
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                    colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = currentPalette.accent,
-                        unfocusedBorderColor = currentPalette.border
+                        unfocusedBorderColor = currentPalette.border,
+                        focusedContainerColor = CardBackground,
+                        unfocusedContainerColor = CardBackground
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
