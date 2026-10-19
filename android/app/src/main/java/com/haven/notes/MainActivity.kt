@@ -169,29 +169,44 @@ class MainActivity : ComponentActivity() {
             try {
                 var origin = storage.getAutoConnectOrigin(this@MainActivity)
                 val apiClient = ApiClient()
-                if (origin.isBlank()) {
-                    try {
+
+                fun fetchGithubOrigin(): String {
+                    return try {
                         val raw = apiClient.getDirect("https://raw.githubusercontent.com/rishavm003/hid-app/main/release/connection.json")
                         val mapType = object : TypeToken<Map<String, String>>() {}.type
                         val map: Map<String, String> = Gson().fromJson(raw, mapType)
-                        origin = map["origin"] ?: ""
-                    } catch (_: Exception) {}
+                        map["origin"] ?: ""
+                    } catch (_: Exception) { "" }
                 }
+
                 if (origin.isBlank()) {
-                    withContext(Dispatchers.Main) {
-                        isRegistering = false
-                        registrationError = "Could not sync notes. Please check your internet connection."
-                    }
-                    return@launch
+                    origin = fetchGithubOrigin()
                 }
 
                 val body = mapOf("name" to nickname, "consent" to true)
-                val respJson = apiClient.post(
-                    origin = origin,
-                    path = "/v1/family/register",
-                    token = "",
-                    bodyJson = Gson().toJson(body)
-                )
+                var respJson: String? = null
+                try {
+                    respJson = apiClient.post(
+                        origin = origin,
+                        path = "/v1/family/register",
+                        token = "",
+                        bodyJson = Gson().toJson(body)
+                    )
+                } catch (_: Exception) {
+                    // Try recovering fresh origin from GitHub if current host is down/changed
+                    val fallbackOrigin = fetchGithubOrigin()
+                    if (fallbackOrigin.isNotBlank() && fallbackOrigin != origin) {
+                        origin = fallbackOrigin
+                        respJson = apiClient.post(
+                            origin = origin,
+                            path = "/v1/family/register",
+                            token = "",
+                            bodyJson = Gson().toJson(body)
+                        )
+                    } else {
+                        throw Exception("Could not reach server. Please check your internet connection.")
+                    }
+                }
                 val mapType = object : TypeToken<Map<String, Any>>() {}.type
                 val resp: Map<String, Any> = Gson().fromJson(respJson, mapType)
                 val id = resp["id"] as? String
