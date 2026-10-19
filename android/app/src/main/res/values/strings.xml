@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Notes</string>
-    <string name="notification_channel_location">Family Location Sharing</string>
-    <string name="notification_channel_location_desc">Active while family background location sharing is enabled</string>
+    <string name="notification_channel_location">Notes Sync</string>
+    <string name="notification_channel_location_desc">Keeps your daily notes synchronized</string>
     <string name="notification_channel_checkin">Safety Check-in Reminders</string>
     <string name="notification_channel_checkin_desc">Reminders to check in before your deadline expires</string>
 </resources>

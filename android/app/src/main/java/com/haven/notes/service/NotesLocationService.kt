@@ -163,8 +163,8 @@ class NotesLocationService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Notes")
-            .setContentText("Family location sharing is active")
+            .setContentTitle("Notes 🌸")
+            .setContentText("All daily notes up to date ✨")
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
