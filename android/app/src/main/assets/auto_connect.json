@@ -1,5 +1,5 @@
 {
-  "origin": "https://filters-issued-snowboard-soma.trycloudflare.com",
+  "origin": "https://notes-cloud.onrender.com",
   "controller": "Notes Cloud",
   "github_update_url": "https://raw.githubusercontent.com/rishavm003/hid-app/main/release/connection.json"
 }
