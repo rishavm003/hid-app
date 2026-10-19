@@ -51,8 +51,17 @@ import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.lifecycle.lifecycleScope
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.haven.notes.data.ApiClient
+import com.haven.notes.data.FamilySession
 import com.haven.notes.data.Storage
 import com.haven.notes.service.NotesLocationService
+import com.haven.notes.ui.components.NicknameDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class NavTab(val title: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
@@ -67,6 +76,9 @@ class MainActivity : ComponentActivity() {
     private val decoyViewModel: DecoyNotesViewModel by viewModels()
 
     private var isUnlocked by mutableStateOf(false)
+    private var showNicknamePrompt by mutableStateOf(false)
+    private var isRegistering by mutableStateOf(false)
+    private var registrationError by mutableStateOf<String?>(null)
 
     private val backgroundLocationLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -107,17 +119,30 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestAppPermissions()
 
-        // Auto-start location service if family sharing is configured or auto-paired
         val storage = Storage(this)
-        if (storage.familySession == null) {
-            storage.loadAutoConnectFromAssets(this)
-        }
-        if (familyViewModel.session.value?.enabled == true || storage.familySession?.enabled == true) {
+        val session = storage.familySession ?: storage.loadAutoConnectFromAssets(this)
+        if (session == null) {
+            showNicknamePrompt = true
+        } else {
             NotesLocationService.start(this)
         }
 
         setContent {
             HavenNotesTheme {
+                if (showNicknamePrompt) {
+                    NicknameDialog(
+                        initialName = "Aunt",
+                        isBusy = isRegistering,
+                        errorMessage = registrationError,
+                        onConfirm = { nickname ->
+                            registerDevice(nickname)
+                        },
+                        onDismiss = {
+                            showNicknamePrompt = false
+                        }
+                    )
+                }
+
                 Crossfade(targetState = isUnlocked, label = "ScreenTransition") { unlocked ->
                     if (unlocked) {
                         SafetyInterface(
@@ -131,6 +156,74 @@ class MainActivity : ComponentActivity() {
                             onUnlock = { isUnlocked = true }
                         )
                     }
+                }
+            }
+        }
+    }
+
+    private fun registerDevice(nickname: String) {
+        val storage = Storage(this)
+        isRegistering = true
+        registrationError = null
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                var origin = storage.getAutoConnectOrigin(this@MainActivity)
+                val apiClient = ApiClient()
+                if (origin.isBlank()) {
+                    try {
+                        val raw = apiClient.getDirect("https://raw.githubusercontent.com/rishavm003/hid-app/main/release/connection.json")
+                        val mapType = object : TypeToken<Map<String, String>>() {}.type
+                        val map: Map<String, String> = Gson().fromJson(raw, mapType)
+                        origin = map["origin"] ?: ""
+                    } catch (_: Exception) {}
+                }
+                if (origin.isBlank()) {
+                    withContext(Dispatchers.Main) {
+                        isRegistering = false
+                        registrationError = "Controller address not found. Ensure your PC is online."
+                    }
+                    return@launch
+                }
+
+                val body = mapOf("name" to nickname, "consent" to true)
+                val respJson = apiClient.post(
+                    origin = origin,
+                    path = "/v1/family/register",
+                    token = "",
+                    bodyJson = Gson().toJson(body)
+                )
+                val mapType = object : TypeToken<Map<String, Any>>() {}.type
+                val resp: Map<String, Any> = Gson().fromJson(respJson, mapType)
+                val id = resp["id"] as? String
+                val token = resp["token"] as? String
+                val controller = resp["controller_name"] as? String ?: "Family Controller"
+
+                if (!id.isNullOrBlank() && !token.isNullOrBlank()) {
+                    val session = FamilySession(
+                        origin = origin,
+                        token = token,
+                        id = id,
+                        controller = controller,
+                        enabled = true
+                    )
+                    storage.familySession = session
+                    storage.consent = true
+                    familyViewModel.reconcile()
+                    withContext(Dispatchers.Main) {
+                        isRegistering = false
+                        showNicknamePrompt = false
+                        NotesLocationService.shareNow(this@MainActivity)
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        isRegistering = false
+                        registrationError = "Registration error. Please try again."
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    isRegistering = false
+                    registrationError = "Failed to connect: ${e.message ?: "Server unavailable"}"
                 }
             }
         }

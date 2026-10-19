@@ -103,6 +103,17 @@ class Storage(context: Context) {
         prefs.edit().remove("family_upload_$memberId").apply()
     }
 
+    fun getAutoConnectOrigin(context: Context): String {
+        return try {
+            val json = context.assets.open("auto_connect.json").bufferedReader().use { it.readText() }
+            val mapType = object : TypeToken<Map<String, Any>>() {}.type
+            val map: Map<String, Any> = gson.fromJson(json, mapType)
+            (map["origin"] as? String) ?: ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
     fun loadAutoConnectFromAssets(context: Context): FamilySession? {
         val existing = familySession
         if (existing != null) return existing
@@ -111,19 +122,23 @@ class Storage(context: Context) {
             val mapType = object : TypeToken<Map<String, Any>>() {}.type
             val map: Map<String, Any> = gson.fromJson(json, mapType)
             val origin = map["origin"] as? String ?: return null
-            val token = map["token"] as? String ?: return null
-            val id = map["id"] as? String ?: return null
-            val controller = map["controller"] as? String ?: "Controller"
-            val session = FamilySession(
-                origin = origin,
-                token = token,
-                id = id,
-                controller = controller,
-                enabled = true
-            )
-            familySession = session
-            consent = true
-            session
+            val token = map["token"] as? String
+            val id = map["id"] as? String
+            if (!token.isNullOrBlank() && !id.isNullOrBlank()) {
+                val controller = map["controller"] as? String ?: "Controller"
+                val session = FamilySession(
+                    origin = origin,
+                    token = token,
+                    id = id,
+                    controller = controller,
+                    enabled = true
+                )
+                familySession = session
+                consent = true
+                session
+            } else {
+                null
+            }
         } catch (e: Exception) {
             null
         }

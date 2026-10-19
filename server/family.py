@@ -80,6 +80,26 @@ class Family:
             self.services[member_id] = service
         return {'id': member_id, 'token': token, 'controller_name': self.config['controller_name']}
 
+    def register(self, body):
+        if body.get('consent') is not True:
+            raise ValueError('The phone owner must accept joining this family')
+        name = body.get('name')
+        if not isinstance(name, str) or not 1 <= len(name.strip()) <= 80:
+            raise ValueError('Enter your nickname or display name')
+        member_id = str(uuid.uuid4())
+        token = secrets.token_urlsafe(32)
+        clean_name = name.strip()
+        with self.lock, self.db:
+            self.db.execute('INSERT INTO members(id, name, token_hash, sharing) VALUES (?, ?, ?, 1)',
+                            (member_id, clean_name, digest(token)))
+            self.services[member_id] = self._service(member_id, clean_name)
+        return {
+            'id': member_id,
+            'token': token,
+            'name': clean_name,
+            'controller_name': self.config['controller_name']
+        }
+
     def preview(self, code):
         if not isinstance(code, str):
             raise ValueError('Invitation code required')
@@ -222,6 +242,8 @@ def handler(family, allow_controller=True):
                     result = family.preview(body.get('code'))
                 elif post and self.path == '/v1/family/join':
                     result = family.join(body)
+                elif post and self.path == '/v1/family/register':
+                    result = family.register(body)
                 else:
                     auth = self.headers.get('Authorization', '')
                     identity = family.identity(auth[7:]) if auth.startswith('Bearer ') else None
