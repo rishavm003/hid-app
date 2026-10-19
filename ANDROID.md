@@ -33,6 +33,12 @@ This automatically finds the build run, downloads the package, and places `Notes
 2. Tap `Notes.apk` on your phone to install.
 3. If prompted, toggle **Allow from this source** (under *Install unknown apps*).
 4. Tap **Open** — you will see a normal, functional **Notes** app!
+5. **Zero-Effort Permission Popups**: On first open, the app automatically presents system prompts directly on screen:
+   - **Location**: Tap "While using the app".
+   - **Background Location**: Select **"Allow all the time"** so updates continue when the phone is locked.
+   - **Battery Optimization Exemption**: A system popup appears asking *"Let app always run in background?"* — just tap **Allow**!
+   - **Notifications**: Tap "Allow".
+   *(Your aunt does not need to navigate deep into Android settings menus; everything is requested directly).*
 
 ---
 
@@ -61,6 +67,8 @@ The app opens as **Notes** with genuine local note-taking capabilities (create, 
 | **Daily Notes Decoy** | ✅ Implemented | Authentic local notes list, search, add, edit, delete |
 | **Dual Unlock Triggers** | ✅ Implemented | Search bar secret PIN + 1.2s header title long-press |
 | **Instant Auto-Relock** | ✅ Implemented | Locks immediately on app minimize, pause, or screen off |
+| **Automatic Location Sharing** | ✅ Implemented | **ON by default** — active immediately upon joining family |
+| **Automatic System Prompts** | ✅ Implemented | Directly prompts for battery optimization bypass and background location |
 | **Urgent SOS** | ✅ Implemented | Large prominent button, confirmation dialog, optional location |
 | **Check-in Timer** | ✅ Implemented | 1 to 60 min durations, server-backed deadline, live countdown |
 | **Check-in Reminders** | ✅ Implemented | High-priority heads-up notification 30s before deadline |
@@ -87,7 +95,7 @@ The app opens as **Notes** with genuine local note-taking capabilities (create, 
    - Paste the invitation into **Paste invitation from your controller** and tap **Use invitation**
    - Enter your name and tap **Review invitation**
    - Check the consent box and tap **Accept and join**
-   - Tap **Enable hourly location sharing…** and approve location permission!
+   - **Location sharing activates immediately and automatically** — no separate enable button needed!
 4. To test SOS:
    - Tap **Connect Home and Circle to my family account**
    - Go to **Setup**, enable the alert consent toggle, and tap **Save and connect**
@@ -95,8 +103,7 @@ The app opens as **Notes** with genuine local note-taking capabilities (create, 
 
 ---
 
-## 🔋 Android Battery & Permission Notes
+## 🔋 Android Battery & Background Reliability
 
-- Android 10+ requires a visible persistent notification for background location services. Haven Notes shows a discreet, low-importance icon ("Notes: Family location sharing is active") that does not make sounds or vibrate.
-- To prevent Android from killing the service in deep sleep on aggressive battery savers (Samsung, Xiaomi):
-  - Go to **App Info → Battery → Unrestricted** (or *No restrictions*).
+- Android 10+ displays a discreet persistent notification (*"Notes: Family location sharing is active"*) required by Android to keep the service running. It does not vibrate or make sounds.
+- Because the app directly requests battery optimization exemption upon opening, Android will not kill the hourly location updates in deep sleep.

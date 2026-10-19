@@ -46,6 +46,13 @@ import com.haven.notes.viewmodel.DecoyNotesViewModel
 import com.haven.notes.viewmodel.FamilyViewModel
 import com.haven.notes.viewmodel.SafetyViewModel
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
+import com.haven.notes.service.NotesLocationService
+
 enum class NavTab(val title: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
     CIRCLE("Circle", Icons.Default.People),
@@ -60,18 +67,38 @@ class MainActivity : ComponentActivity() {
 
     private var isUnlocked by mutableStateOf(false)
 
+    private val backgroundLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        requestBatteryOptimizationExemption()
+    }
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ ->
-        // Permissions updated; refresh location status
-        if (safetyViewModel.sharingLocation.value) {
+    ) { grants ->
+        val fineGranted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        if (fineGranted) {
             safetyViewModel.setLocation(true)
+            // Request background location ('Allow all the time') on Android 10+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            } else {
+                requestBatteryOptimizationExemption()
+            }
+        } else {
+            requestBatteryOptimizationExemption()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestAppPermissions()
+
+        // Auto-start location service if family sharing is configured
+        if (familyViewModel.session.value?.enabled == true) {
+            NotesLocationService.start(this)
+        }
 
         setContent {
             HavenNotesTheme {
@@ -97,6 +124,9 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         safetyViewModel.refresh()
         familyViewModel.reconcile()
+        if (familyViewModel.session.value?.enabled == true) {
+            NotesLocationService.start(this)
+        }
     }
 
     override fun onStop() {
@@ -118,7 +148,26 @@ class MainActivity : ComponentActivity() {
         }
         if (needsRequest) {
             permissionLauncher.launch(permissions.toTypedArray())
+        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            } else {
+                requestBatteryOptimizationExemption()
+            }
         }
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            }
+        } catch (_: Exception) {}
     }
 }
 

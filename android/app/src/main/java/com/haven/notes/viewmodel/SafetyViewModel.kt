@@ -45,7 +45,7 @@ class SafetyViewModel(application: Application) : AndroidViewModel(application) 
     private val _locationText = MutableStateFlow("Location sharing is off")
     val locationText: StateFlow<String> = _locationText.asStateFlow()
 
-    private val _sharingLocation = MutableStateFlow(false)
+    private val _sharingLocation = MutableStateFlow(true)
     val sharingLocation: StateFlow<Boolean> = _sharingLocation.asStateFlow()
 
     private val _pending = MutableStateFlow<PendingRequest?>(null)
@@ -77,6 +77,7 @@ class SafetyViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         _pending.value = storage.pendingRequest
+        setLocation(true)
         if (storage.endpoint.isNotBlank() && storage.token.isNotBlank()) {
             refresh()
         }

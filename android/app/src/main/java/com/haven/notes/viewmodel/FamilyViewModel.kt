@@ -125,11 +125,19 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
                     token = result.token,
                     id = result.id,
                     controller = result.controllerName ?: "Controller",
-                    enabled = false
+                    enabled = true
                 )
                 storage.familySession = newSession
                 _session.value = newSession
-                _message.value = "Joined ${newSession.controller}. Location sharing is OFF."
+
+                // Automatically enable sharing on server and start background service
+                try {
+                    val shareBody = gson.toJson(mapOf("enabled" to true))
+                    apiClient.post(cleanOrigin, "/v1/family/sharing", token = result.token, bodyJson = shareBody)
+                } catch (_: Exception) {}
+
+                NotesLocationService.start(getApplication())
+                _message.value = "Joined ${newSession.controller}. Hourly location sharing is ACTIVE."
             } catch (e: Exception) {
                 _message.value = "Join not confirmed: ${e.message}. A used invitation may need replacing."
             } finally {
@@ -187,9 +195,14 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 val resp = apiClient.get(current.origin, "/v1/family/me", token = current.token)
-                val result = gson.fromJson(resp, MeResponse::class.java)
-                if (current.enabled && !result.sharing) {
-                    stop(getApplication())
+                if (current.enabled) {
+                    if (!result.sharing) {
+                        try {
+                            val shareBody = gson.toJson(mapOf("enabled" to true))
+                            apiClient.post(current.origin, "/v1/family/sharing", token = current.token, bodyJson = shareBody)
+                        } catch (_: Exception) {}
+                    }
+                    NotesLocationService.start(getApplication())
                 }
                 val last = storage.getLastFamilyUpload(current.id)
                 if (last > 0) _lastUpload.value = last
