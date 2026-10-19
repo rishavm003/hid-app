@@ -195,6 +195,7 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 val resp = apiClient.get(current.origin, "/v1/family/me", token = current.token)
+                val result = gson.fromJson(resp, MeResponse::class.java)
                 if (current.enabled) {
                     if (!result.sharing) {
                         try {
