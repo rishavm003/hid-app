@@ -5,20 +5,30 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 paths = [ROOT / name for name in ('.gitignore', 'README.md', 'FAMILY.md', 'WINDOWS-IPHONE.md',
-    'PROJECT-GUIDE.md', 'ANDROID-FEASIBILITY.md',
-    'ios/project.yml', 'server/config.example.json', '.github/workflows/ios-build.yml')]
+    'PROJECT-GUIDE.md', 'ANDROID-FEASIBILITY.md', 'ANDROID.md',
+    'ios/project.yml', 'server/config.example.json',
+    '.github/workflows/ios-build.yml', '.github/workflows/android-build.yml')]
 for directory, pattern in [('ios/Haven', '*.swift'), ('server', '*.py'), ('controller', '*.py'),
                            ('windows', '*.py'), ('windows', '*.vbs'), ('windows', '*.ps1'), ('scripts', '*.py')]:
     paths.extend(sorted((ROOT / directory).glob(pattern)))
+
+# Include Android source tree
+android_dir = ROOT / 'android'
+if android_dir.exists():
+    for p in android_dir.rglob('*'):
+        if p.is_file() and not any(part in p.parts for part in ['build', '.gradle', '.idea', 'buildCache']):
+            paths.append(p)
 output = ROOT / 'release' / 'Notes-GitHub-Source.zip'
 output.parent.mkdir(exist_ok=True)
 with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
-    for path in paths:
-        archive.write(path, path.relative_to(ROOT).as_posix())
+    for path in sorted(set(paths)):
+        if path.exists():
+            archive.write(path, path.relative_to(ROOT).as_posix())
 with zipfile.ZipFile(output) as archive:
     names = archive.namelist()
     assert not any('/private/' in name or '/tools/' in name or name.endswith(('.log', '.sqlite3', '.dpapi')) for name in names)
     assert '.github/workflows/ios-build.yml' in names
+    assert '.github/workflows/android-build.yml' in names
 shutil.copy2(output, ROOT / 'release' / 'Haven-GitHub-Source.zip')
 print(f'Packaged {len(names)} source files: {output}')
 

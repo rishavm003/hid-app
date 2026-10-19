@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.HavenNotes" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#F0F5EC</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#F0F5EC</item>
+    </style>
+</resources>

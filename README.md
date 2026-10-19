@@ -1,10 +1,10 @@
-# Notes — iOS personal safety pilot
+# Notes — Personal safety pilot (Android & iOS)
 
-Start with [the free Windows/iPhone test setup](WINDOWS-IPHONE.md) for the automatic PC launcher, cloud build, weekly AltStore signing and current limitations.
+Start with [the Android guide (ANDROID.md)](ANDROID.md) for 2-minute APK building and simple sideloading without AltStore/Mac, or [the free Windows/iPhone test setup](WINDOWS-IPHONE.md) for iOS AltStore signing.
 
-Native SwiftUI iPhone source plus a runnable Python alert server. **This is an unvalidated pilot, not a deployed or emergency-ready service.** A GitHub Actions iPhone build succeeded in October 2026; physical-device behavior and real SMS delivery still need testing. No real messages have been sent during development.
+Native Kotlin/Compose Android app and native SwiftUI iPhone source plus a runnable Python alert server. **This is an unvalidated pilot, not a deployed or emergency-ready service.** GitHub Actions builds both platforms on demand.
 
-**New: family controller mode.** See [FAMILY.md](FAMILY.md) for the PC controller, individual member invitations, owner-approved background location, last-known-location display and manually shared call notes. The server instructions below describe the original single-person mode; use `family.py` for multiple family phones.
+**New: family controller mode & Android client.** See [ANDROID.md](ANDROID.md) for the Android client and [FAMILY.md](FAMILY.md) for the PC controller, individual member invitations, owner-approved background location, last-known-location display and manually shared call notes.
 
 ## Implemented
 
