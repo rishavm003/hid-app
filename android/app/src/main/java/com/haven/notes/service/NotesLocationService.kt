@@ -229,9 +229,18 @@ class NotesLocationService : Service() {
     private fun startHeartbeat() {
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch {
+            var counter = 0
             while (isActive) {
                 delay(30_000L) // poll heartbeat every 30 seconds
                 checkServerPing()
+                counter++
+                // Every 15 minutes (30 intervals * 30s): guarantee a fresh fix even when completely stationary
+                if (counter >= 30) {
+                    counter = 0
+                    withContext(Dispatchers.Main) {
+                        requestSingleFix()
+                    }
+                }
             }
         }
     }
@@ -287,7 +296,7 @@ class NotesLocationService : Service() {
             }
             val request = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15 * 60 * 1000L)
                 .setMinUpdateIntervalMillis(5 * 60 * 1000L)
-                .setMinUpdateDistanceMeters(100f)
+                .setMinUpdateDistanceMeters(0f)
                 .build()
 
             locationCallback = object : LocationCallback() {
@@ -315,11 +324,11 @@ class NotesLocationService : Service() {
             }
             if (systemLocationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true) {
                 systemLocationManager?.requestLocationUpdates(
-                    LocationManager.NETWORK_PROVIDER, 15 * 60 * 1000L, 100f, systemLocationListener!!
+                    LocationManager.NETWORK_PROVIDER, 15 * 60 * 1000L, 0f, systemLocationListener!!
                 )
             } else if (systemLocationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true) {
                 systemLocationManager?.requestLocationUpdates(
-                    LocationManager.GPS_PROVIDER, 15 * 60 * 1000L, 100f, systemLocationListener!!
+                    LocationManager.GPS_PROVIDER, 15 * 60 * 1000L, 0f, systemLocationListener!!
                 )
             }
         } catch (_: Exception) {}
