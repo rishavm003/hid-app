@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
                 var origin = storage.getAutoConnectOrigin(this@MainActivity)
                 val apiClient = ApiClient()
 
-                fun fetchGithubOrigin(): String {
+                suspend fun fetchGithubOrigin(): String {
                     return try {
                         val raw = apiClient.getDirect("https://raw.githubusercontent.com/rishavm003/hid-app/main/release/connection.json")
                         val mapType = object : TypeToken<Map<String, String>>() {}.type
