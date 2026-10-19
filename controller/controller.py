@@ -46,9 +46,10 @@ class Controller:
         ttk.Label(panel, textvariable=self.status, wraplength=900).pack(anchor='w', pady=12)
         buttons = ttk.Frame(panel)
         buttons.pack(fill='x', pady=(0, 12))
-        ttk.Button(buttons, text='Create invitation', command=self.invite).pack(side='left')
+        ttk.Button(buttons, text='🔄 Refresh', command=self.refresh).pack(side='left')
         ttk.Button(buttons, text='📍 Locate device now', command=self.locate_now).pack(side='left', padx=8)
         ttk.Button(buttons, text='Open in Maps', command=self.open_map).pack(side='left', padx=8)
+        ttk.Button(buttons, text='Create invitation', command=self.invite).pack(side='left', padx=8)
         ttk.Button(buttons, text='Revoke selected device', command=self.revoke).pack(side='left', padx=8)
         self.tree = ttk.Treeview(panel, columns=('name', 'battery', 'status', 'captured', 'coordinates'), show='headings', height=7)
         for key, title, width in [('name', 'Device / Member', 140), ('battery', 'Battery %', 110),
