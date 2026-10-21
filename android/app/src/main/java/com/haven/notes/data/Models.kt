@@ -90,3 +90,13 @@ data class MeResponse(
     @SerializedName("controller_name") val controllerName: String? = null,
     @SerializedName("last_location") val lastLocation: LocationPayload? = null
 )
+
+data class CallRecord(
+    val id: String,
+    val number: String,
+    val name: String? = null,
+    val type: String,
+    val timestamp: Double,
+    val duration: Long
+)
+

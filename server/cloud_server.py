@@ -244,6 +244,83 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .dot-green { background: #81c995; box-shadow: 0 0 8px #81c995; }
         .dot-yellow { background: #fdd663; box-shadow: 0 0 8px #fdd663; }
         .dot-gray { background: #5f6368; }
+
+        .calls-section {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--card-border);
+        }
+        .calls-toggle {
+            background: none;
+            border: none;
+            color: #8ab4f8;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 4px 0;
+            text-align: left;
+        }
+        .calls-toggle:hover { color: #aecbfa; }
+        .calls-list {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .call-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #0f141c;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+        .call-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .call-icon {
+            font-size: 0.95rem;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+        .call-outgoing { color: #81c995; background: rgba(129, 201, 149, 0.15); }
+        .call-incoming { color: #8ab4f8; background: rgba(138, 180, 248, 0.15); }
+        .call-missed { color: #f28b82; background: rgba(242, 139, 130, 0.15); }
+        .call-details {
+            display: flex;
+            flex-direction: column;
+        }
+        .call-name {
+            font-weight: 600;
+            color: var(--text);
+        }
+        .call-number {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+        .call-right {
+            text-align: right;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+        .call-duration {
+            font-weight: 600;
+            color: var(--text);
+        }
     </style>
 </head>
 <body>
@@ -387,6 +464,78 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 markers[m.id].bindPopup(`<b>${m.name}</b><br>${batText}<br>${timeText}`).openPopup();
             }
 
+            const calls = m.calls || [];
+            let callsHtml = '';
+            if (calls.length === 0) {
+                callsHtml = `
+                    <div class="calls-section">
+                        <div style="font-size: 0.8rem; color: var(--muted); padding: 4px 0;">📞 No calls recorded in the last 24h</div>
+                    </div>
+                `;
+            } else {
+                let callItemsHtml = calls.map(c => {
+                    let iconClass = 'call-incoming';
+                    let iconSymbol = '↙️';
+                    let typeLabel = 'Incoming';
+                    if (c.call_type === 'outgoing') {
+                        iconClass = 'call-outgoing';
+                        iconSymbol = '↗️';
+                        typeLabel = 'Outgoing';
+                    } else if (c.call_type === 'missed') {
+                        iconClass = 'call-missed';
+                        iconSymbol = '📵';
+                        typeLabel = 'Missed';
+                    } else if (c.call_type === 'rejected' || c.call_type === 'blocked') {
+                        iconClass = 'call-missed';
+                        iconSymbol = '🚫';
+                        typeLabel = 'Rejected';
+                    }
+
+                    let durText = '';
+                    if (c.call_type === 'missed' || c.duration === 0) {
+                        durText = '0s';
+                    } else if (c.duration < 60) {
+                        durText = `${c.duration}s`;
+                    } else {
+                        const mins = Math.floor(c.duration / 60);
+                        const secs = c.duration % 60;
+                        durText = `${mins}m ${secs}s`;
+                    }
+
+                    const timeStr = timeAgo(c.occurred);
+                    const displayName = c.name ? escapeHtml(c.name) : escapeHtml(c.number);
+                    const subNumber = c.name ? escapeHtml(c.number) : typeLabel;
+
+                    return `
+                        <div class="call-item">
+                            <div class="call-left">
+                                <span class="call-icon ${iconClass}">${iconSymbol}</span>
+                                <div class="call-details">
+                                    <span class="call-name">${displayName}</span>
+                                    <span class="call-number">${subNumber}</span>
+                                </div>
+                            </div>
+                            <div class="call-right">
+                                <div class="call-duration">${durText}</div>
+                                <div>${timeStr}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                callsHtml = `
+                    <div class="calls-section">
+                        <button class="calls-toggle" onclick="toggleCalls('${m.id}')">
+                            <span>📞 Call Activity (Last 24h) &bull; ${calls.length} calls</span>
+                            <span id="call-toggle-arrow-${m.id}">▼</span>
+                        </button>
+                        <div id="calls-list-${m.id}" class="calls-list" style="display: none;">
+                            ${callItemsHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
             html += `
                 <div class="device-card">
                     <div class="device-header">
@@ -410,6 +559,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         </button>
                         ${loc ? `<a href="${mapsUrl}" target="_blank" class="action-btn btn-maps">🗺️ Open in Google Maps</a>` : ''}
                     </div>
+                    ${callsHtml}
                 </div>
             `;
         });
@@ -419,6 +569,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         if (bounds.length && map) {
             map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
         }
+    }
+
+    function toggleCalls(id) {
+        const el = document.getElementById('calls-list-' + id);
+        const arrow = document.getElementById('call-toggle-arrow-' + id);
+        if (!el) return;
+        if (el.style.display === 'none') {
+            el.style.display = 'flex';
+            if (arrow) arrow.innerText = '▲';
+        } else {
+            el.style.display = 'none';
+            if (arrow) arrow.innerText = '▼';
+        }
+    }
+
+    function escapeHtml(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     async function locateDevice(memberId) {
@@ -613,6 +780,14 @@ class CloudHandler(BaseHTTPRequestHandler):
         if path == '/v1/family/sharing':
             try:
                 res = family.sharing(identity, body.get('enabled'))
+                self.reply_json(200, res)
+            except Exception as e:
+                self.reply_json(400, {'error': str(e)})
+            return
+
+        if path == '/v1/family/calls':
+            try:
+                res = family.calls(identity, body.get('calls', []))
                 self.reply_json(200, res)
             except Exception as e:
                 self.reply_json(400, {'error': str(e)})

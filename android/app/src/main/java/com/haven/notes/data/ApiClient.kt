@@ -11,15 +11,25 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URI
 import java.util.concurrent.TimeUnit
 
+class ApiException(val code: Int, message: String) : Exception(message)
+
 class ApiClient {
     private val client = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .writeTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
     private val gson = Gson()
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+
+    companion object {
+        fun isAuthError(e: Throwable): Boolean {
+            return (e is ApiException && (e.code == 401 || e.code == 403)) ||
+                    (e.message?.contains("Unauthorized", ignoreCase = true) == true) ||
+                    (e.message?.contains("revoked", ignoreCase = true) == true)
+        }
+    }
 
     fun validateHttpsOrigin(origin: String): String {
         val trimmed = origin.trim().trimEnd('/')
@@ -52,7 +62,7 @@ class ApiClient {
             val body = response.body?.string() ?: ""
             if (!response.isSuccessful) {
                 val errorMsg = parseErrorMessage(body) ?: "Server responded with status ${response.code}"
-                throw Exception(errorMsg)
+                throw ApiException(response.code, errorMsg)
             }
             body
         }
@@ -61,7 +71,7 @@ class ApiClient {
     suspend fun getDirect(fullUrl: String): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(fullUrl).build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw Exception("Failed to fetch $fullUrl: ${response.code}")
+            if (!response.isSuccessful) throw ApiException(response.code, "Failed to fetch $fullUrl: ${response.code}")
             response.body?.string() ?: ""
         }
     }
@@ -91,7 +101,7 @@ class ApiClient {
             val responseBody = response.body?.string() ?: ""
             if (!response.isSuccessful) {
                 val errorMsg = parseErrorMessage(responseBody) ?: "Server responded with status ${response.code}"
-                throw Exception(errorMsg)
+                throw ApiException(response.code, errorMsg)
             }
             responseBody
         }

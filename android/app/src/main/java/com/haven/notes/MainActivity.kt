@@ -131,7 +131,7 @@ class MainActivity : ComponentActivity() {
             HavenNotesTheme {
                 if (showNicknamePrompt) {
                     NicknameDialog(
-                        initialName = "",
+                        initialName = storage.deviceNickname.ifBlank { "" },
                         isBusy = isRegistering,
                         errorMessage = registrationError,
                         onConfirm = { nickname ->
@@ -163,6 +163,7 @@ class MainActivity : ComponentActivity() {
 
     private fun registerDevice(nickname: String) {
         val storage = Storage(this)
+        storage.deviceNickname = nickname.trim()
         isRegistering = true
         registrationError = null
         lifecycleScope.launch(Dispatchers.IO) {
@@ -263,7 +264,8 @@ class MainActivity : ComponentActivity() {
     private fun requestAppPermissions() {
         val permissions = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.READ_CALL_LOG
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)

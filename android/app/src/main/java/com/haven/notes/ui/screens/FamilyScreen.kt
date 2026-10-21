@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.haven.notes.util.CallLogHelper
 import com.haven.notes.ui.theme.BackgroundLight
 import com.haven.notes.ui.theme.CardBackground
 import com.haven.notes.ui.theme.CrimsonSOS
@@ -80,6 +81,7 @@ fun FamilyScreen(
     // Dialogs
     var showEnableConfirm by remember { mutableStateOf(false) }
     var showEraseConfirm by remember { mutableStateOf(false) }
+    var showDisconnectConfirm by remember { mutableStateOf(false) }
     var showNoteConfirm by remember { mutableStateOf(false) }
     var showReconnectConfirm by remember { mutableStateOf(false) }
 
@@ -142,6 +144,35 @@ fun FamilyScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showEraseConfirm = false }) { Text("Cancel", color = Ink) }
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
+    // Disconnect confirmation dialog
+    if (showDisconnectConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDisconnectConfirm = false },
+            title = { Text("Disconnect from Controller?", color = CrimsonSOS, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Disconnect this phone from ${session?.controller ?: "the controller"}? You can pair or reconnect anytime.",
+                    color = Ink
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDisconnectConfirm = false
+                        familyViewModel.disconnect(context)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonSOS)
+                ) {
+                    Text("Disconnect")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisconnectConfirm = false }) { Text("Cancel", color = Ink) }
             },
             shape = RoundedCornerShape(20.dp)
         )
@@ -371,6 +402,45 @@ fun FamilyScreen(
                     }
                 }
 
+                // Call History Monitoring
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Call History Monitoring (24h)",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Ink
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Automatically syncs incoming, outgoing, and missed call activity from the last 24 hours to your cloud controller to protect against unauthorized device use.",
+                            fontSize = 13.sp,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        val hasCallPermission = CallLogHelper.hasPermission(context)
+                        if (hasCallPermission) {
+                            Text(
+                                text = "✅ Call log sharing active (24-hour window)",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SageAccent
+                            )
+                        } else {
+                            Text(
+                                text = "⚠️ Call log permission not granted",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = CrimsonSOS
+                            )
+                        }
+                    }
+                }
+
                 // Share a call note
                 Card(
                     shape = RoundedCornerShape(20.dp),
@@ -448,6 +518,15 @@ fun FamilyScreen(
                             fontSize = 11.sp,
                             color = TextSecondary
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = { showDisconnectConfirm = true },
+                            enabled = !busy,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Disconnect / Unpair device…", color = CrimsonSOS)
+                        }
                     }
                 }
 

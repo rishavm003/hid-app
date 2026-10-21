@@ -193,6 +193,30 @@ class FamilyTests(unittest.TestCase):
             server.server_close()
             thread.join()
 
+    def test_call_logs_sync_and_24h_window(self):
+        calls_data = [
+            {'id': 'call1', 'number': '+15551234567', 'name': 'Mom', 'type': 'incoming', 'timestamp': self.now - 3600, 'duration': 120},
+            {'id': 'call2', 'number': '+15559876543', 'name': 'Unknown', 'type': 'outgoing', 'timestamp': self.now - 600, 'duration': 45},
+            {'id': 'call_old', 'number': '+15550000000', 'name': 'Old', 'type': 'missed', 'timestamp': self.now - 90000, 'duration': 0}
+        ]
+        res = self.family.calls(self.alice['id'], calls_data)
+        self.assertEqual(res['state'], 'saved')
+
+        m = self.member(self.alice)
+        self.assertIn('calls', m)
+        calls = m['calls']
+        # The call from 90000 seconds ago (>24h) should not be returned
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]['call_id'], 'call2')
+        self.assertEqual(calls[1]['call_id'], 'call1')
+        self.assertEqual(calls[1]['number'], '+15551234567')
+        self.assertEqual(calls[1]['name'], 'Mom')
+        self.assertEqual(calls[1]['call_type'], 'incoming')
+
+        # Test erase clears calls
+        self.family.erase(self.alice['id'])
+        self.assertEqual(len(self.member(self.alice)['calls']), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

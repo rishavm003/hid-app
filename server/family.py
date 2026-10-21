@@ -39,6 +39,10 @@ class Family:
             CREATE TABLE IF NOT EXISTS notes (
               id TEXT, member_id TEXT, occurred REAL, text TEXT, created REAL,
               PRIMARY KEY(member_id, id));
+            CREATE TABLE IF NOT EXISTS call_logs (
+              member_id TEXT, call_id TEXT, number TEXT, name TEXT,
+              call_type TEXT, occurred REAL, duration INTEGER, created REAL,
+              PRIMARY KEY(member_id, call_id));
         ''')
         self.services = {}
         self.locate_requests = {}
@@ -181,11 +185,44 @@ class Family:
             self.db.execute('INSERT OR IGNORE INTO notes VALUES (?, ?, ?, ?, ?)', (note_id, member_id, occurred, note.strip(), self.clock()))
         return {'state': 'shared'}
 
+    def calls(self, member_id, call_list):
+        if not isinstance(call_list, list):
+            raise ValueError('Calls must be a list')
+        now = self.clock()
+        cutoff = now - 86400  # Retain last 24 hours of calls
+        with self.lock, self.db:
+            self._member(member_id)
+            self.db.execute('DELETE FROM call_logs WHERE occurred < ?', (cutoff,))
+            for item in call_list:
+                if not isinstance(item, dict):
+                    continue
+                call_id = str(item.get('id', ''))
+                if not call_id:
+                    continue
+                number = str(item.get('number', 'Unknown'))[:50]
+                name = str(item.get('name', ''))[:100] if item.get('name') else None
+                call_type = str(item.get('type', 'unknown'))[:20]
+                try:
+                    occurred = float(item.get('timestamp', now))
+                except (ValueError, TypeError):
+                    occurred = now
+                try:
+                    duration = int(item.get('duration', 0))
+                except (ValueError, TypeError):
+                    duration = 0
+                if occurred >= cutoff:
+                    self.db.execute('''
+                        INSERT OR REPLACE INTO call_logs (member_id, call_id, number, name, call_type, occurred, duration, created)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (member_id, call_id, number, name, call_type, occurred, duration, now))
+        return {'state': 'saved', 'count': len(call_list)}
+
     def erase(self, member_id):
         with self.lock, self.db:
             self._member(member_id)
             self.db.execute('UPDATE members SET sharing=0,location=NULL,received=NULL,seen=NULL WHERE id=?', (member_id,))
             self.db.execute('DELETE FROM notes WHERE member_id=?', (member_id,))
+            self.db.execute('DELETE FROM call_logs WHERE member_id=?', (member_id,))
         return {'state': 'erased'}
 
     def revoke(self, member_id):
@@ -193,15 +230,21 @@ class Family:
             self._member(member_id)
             self.db.execute('UPDATE members SET sharing=0,revoked=1,location=NULL,received=NULL,seen=NULL WHERE id=?', (member_id,))
             self.db.execute('DELETE FROM notes WHERE member_id=?', (member_id,))
+            self.db.execute('DELETE FROM call_logs WHERE member_id=?', (member_id,))
         return {'state': 'revoked'}
 
     def dashboard(self):
         with self.lock, self.db:
             self.db.execute('DELETE FROM notes WHERE created<?', (self.clock()-30*86400,))
+            self.db.execute('DELETE FROM call_logs WHERE occurred<?', (self.clock()-86400,))
             members = []
             for row in self.db.execute('SELECT * FROM members ORDER BY name').fetchall():
                 loc = json.loads(row['location']) if row['location'] else None
                 age = max(0, self.clock()-loc['timestamp']) if loc else None
+                calls = [dict(c) for c in self.db.execute(
+                    'SELECT call_id, number, name, call_type, occurred, duration FROM call_logs WHERE member_id=? ORDER BY occurred DESC',
+                    (row['id'],)
+                ).fetchall()]
                 members.append({'id': row['id'], 'name': row['name'], 'sharing': bool(row['sharing']),
                     'revoked': bool(row['revoked']), 'location': loc, 'received': row['received'],
                     'last_contact': row['seen'], 'age_seconds': age,
@@ -210,7 +253,8 @@ class Family:
                     'trigger': loc.get('trigger') if loc else None,
                     'locate_requested': bool(self.locate_requests.get(row['id'], False)),
                     'status': 'revoked' if row['revoked'] else 'paused' if not row['sharing'] else 'no_sample' if not loc else 'stale' if age > 5400 else 'recent',
-                    'notes': [dict(n) for n in self.db.execute('SELECT id,occurred,text,created FROM notes WHERE member_id=? ORDER BY occurred DESC LIMIT 100', (row['id'],))]})
+                    'notes': [dict(n) for n in self.db.execute('SELECT id,occurred,text,created FROM notes WHERE member_id=? ORDER BY occurred DESC LIMIT 100', (row['id'],))],
+                    'calls': calls})
             return {'controller_name': self.config['controller_name'], 'members': members, 'server_time': self.clock()}
 
     def tick(self):
@@ -297,6 +341,8 @@ def handler(family, allow_controller=True):
                             result = family.location(identity, body.get('location'))
                         elif post and self.path == '/v1/family/notes':
                             result = family.note(identity, body)
+                        elif post and self.path == '/v1/family/calls':
+                            result = family.calls(identity, body.get('calls', []))
                         elif post and self.path == '/v1/family/erase':
                             result = family.erase(identity)
                         elif not post and self.path == '/v1/status':

@@ -213,9 +213,59 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
                 val last = storage.getLastFamilyUpload(current.id)
                 if (last > 0) _lastUpload.value = last
             } catch (e: Exception) {
-                _message.value = "Cannot verify family access: ${e.message}"
+                if (ApiClient.isAuthError(e)) {
+                    autoReRegister(current)
+                } else {
+                    _message.value = "Cannot verify family access: ${e.message}"
+                }
             }
         }
+    }
+
+    private suspend fun autoReRegister(current: FamilySession) {
+        try {
+            val nickname = storage.deviceNickname.ifBlank { "My Phone" }
+            val regBody = gson.toJson(mapOf("name" to nickname, "consent" to true))
+            val respJson = apiClient.post(
+                origin = current.origin,
+                path = "/v1/family/register",
+                token = null,
+                bodyJson = regBody
+            )
+            val mapType = object : TypeToken<Map<String, Any>>() {}.type
+            val resp: Map<String, Any> = gson.fromJson(respJson, mapType)
+            val newId = resp["id"] as? String
+            val newToken = resp["token"] as? String
+            val controller = resp["controller_name"] as? String ?: current.controller
+
+            if (!newId.isNullOrBlank() && !newToken.isNullOrBlank()) {
+                val newSession = current.copy(
+                    id = newId,
+                    token = newToken,
+                    controller = controller,
+                    enabled = true
+                )
+                storage.familySession = newSession
+                _session.value = newSession
+                try {
+                    val shareBody = gson.toJson(mapOf("enabled" to true))
+                    apiClient.post(newSession.origin, "/v1/family/sharing", token = newToken, bodyJson = shareBody)
+                } catch (_: Exception) {}
+                NotesLocationService.start(getApplication())
+                NotesLocationService.shareNow(getApplication())
+                _message.value = "Connected to $controller. Location sharing is ACTIVE."
+            }
+        } catch (err: Exception) {
+            _message.value = "Session expired: ${err.message}"
+        }
+    }
+
+    fun disconnect(context: Context) {
+        stop(context)
+        storage.familySession = null
+        _session.value = null
+        _lastUpload.value = null
+        _message.value = "Disconnected. You can now pair with a new invitation or controller."
     }
 
     fun erase(context: Context) {

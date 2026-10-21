@@ -153,6 +153,21 @@ class Controller:
             text = f"{member['name']} — {member['status'].upper()}\nLast seen by server: {stamp(member['last_contact'])}\n{bat_info}{trigger_info}"
             if loc:
                 text += f"Location timestamp: {stamp(loc['timestamp'])}; accuracy: ±{loc['accuracy']:.0f} m\nCoordinates: {loc['latitude']}, {loc['longitude']}\n"
+            
+            calls = member.get('calls', [])
+            text += f"\nCall Activity (Last 24 hours — {len(calls)} calls):\n"
+            if calls:
+                call_lines = []
+                for c in calls:
+                    call_type = c.get('call_type', 'unknown').upper()
+                    number = c.get('number', 'Unknown')
+                    name = f" ({c['name']})" if c.get('name') else ""
+                    dur = f"{c.get('duration', 0)}s" if c.get('duration') else "0s"
+                    call_lines.append(f"  • [{call_type}] {number}{name} — {dur} — {stamp(c.get('occurred'))}")
+                text += '\n'.join(call_lines) + '\n'
+            else:
+                text += "  No calls recorded in the last 24 hours.\n"
+
             text += '\nManual call notes (latest 100, retained 30 days):\n'
             text += '\n\n'.join(f"{stamp(note['occurred'])}\n{note['text']}" for note in member['notes']) or 'No notes shared.'
         self.detail.configure(state='normal')

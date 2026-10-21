@@ -15,6 +15,11 @@ class Storage(context: Context) {
         get() = prefs.getString("haven_decoy_pin", "1998") ?: "1998"
         set(value) = prefs.edit().putString("haven_decoy_pin", value).apply()
 
+    // Device Nickname (for automatic re-registration)
+    var deviceNickname: String
+        get() = prefs.getString("haven_device_nickname", "My Phone") ?: "My Phone"
+        set(value) = prefs.edit().putString("haven_device_nickname", value.trim()).apply()
+
     // Daily notes
     fun getDailyNotes(): List<DailyNote> {
         val json = prefs.getString("notes_decoy_notes_json", null) ?: return defaultNotes()
